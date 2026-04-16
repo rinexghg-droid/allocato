@@ -13,9 +13,6 @@ STRIPE_BASIC = "https://buy.stripe.com/fZu9AN2mIeJu3oRbNcfjG02"
 STRIPE_PRO = "https://buy.stripe.com/3cIaERf9udFq2kN04ufjG01"
 STRIPE_LIFETIME = "https://buy.stripe.com/8x2dR37H21WI4sV3gGfjG00"
 
-# =========================
-# Subscription System (STRIKT)
-# =========================
 if "subscription_tier" not in st.session_state:
     st.session_state.subscription_tier = "Free"
 
@@ -215,12 +212,7 @@ ASSET_CATALOG_DF = pd.DataFrame(ASSET_CATALOG).drop_duplicates(subset=["ticker"]
 # =========================
 TRANSLATIONS = {
     "DE": {
-        "page_badges": [
-            "Dynamic Allocation",
-            "Direct Equity Ownership",
-            "Buy & Hold Benchmark",
-            "Launch Version 5.2.0",
-        ],
+        "page_badges": ["Dynamic Allocation", "Direct Equity Ownership", "Buy & Hold Benchmark", "Launch Version 5.2.0"],
         "hero_sub": (
             "Dein smarter Portfolio-Manager für Direktaktien. "
             "Nicht blind kaufen. Nicht unnötig Gebühren zahlen. "
@@ -389,9 +381,6 @@ TRANSLATIONS = {
         "calculate": "Portfolio berechnen",
         "spinner": "Berechne aggressives dynamisches Portfolio...",
         "error_min_assets": "Bitte mindestens 2 Ticker eingeben.",
-        "error_rule_baskets": "Free erlaubt nur 1 Korb.",
-        "error_rule_period": "Free erlaubt maximal 3 Jahre Historie.",
-        "error_rule_topn": "Free erlaubt maximal Top-4.",
         "warning_skip": "Keine Daten für {ticker} – wird übersprungen.",
         "error_no_data": "Es konnten keine gültigen Kursdaten geladen werden.",
         "error_less_than_2": "Nach dem Laden sind weniger als 2 gültige Assets übrig.",
@@ -495,12 +484,7 @@ TRANSLATIONS = {
         "footer_free": "🆓 Free-Version • Upgrade für unbegrenzte Körbe, 5 Jahre Historie und Asset-Suche",
     },
     "EN": {
-        "page_badges": [
-            "Dynamic Allocation",
-            "Direct Equity Ownership",
-            "Buy & Hold Benchmark",
-            "Launch Version 5.2.0",
-        ],
+        "page_badges": ["Dynamic Allocation", "Direct Equity Ownership", "Buy & Hold Benchmark", "Launch Version 5.2.0"],
         "hero_sub": (
             "Your smart portfolio manager for direct equities. "
             "Do not buy blindly. Do not pay unnecessary fees. "
@@ -669,9 +653,6 @@ TRANSLATIONS = {
         "calculate": "Calculate portfolio",
         "spinner": "Calculating aggressive dynamic portfolio...",
         "error_min_assets": "Please enter at least 2 tickers.",
-        "error_rule_baskets": "Free allows only 1 basket.",
-        "error_rule_period": "Free allows a maximum of 3 years of history.",
-        "error_rule_topn": "Free allows a maximum Top-4.",
         "warning_skip": "No data for {ticker} – skipping.",
         "error_no_data": "No valid price data could be loaded.",
         "error_less_than_2": "Fewer than 2 valid assets remain after loading.",
@@ -777,35 +758,234 @@ TRANSLATIONS = {
 }
 
 # =========================
-# Strict rule helpers
+# Helpers
 # =========================
-def get_max_baskets() -> int:
-    return 1 if st.session_state.get("subscription_tier", "Free") == "Free" else 999
-
 def get_basket_limit() -> int:
-    return get_max_baskets()
+    tier = st.session_state.get("subscription_tier", "Free")
+    return 1 if tier == "Free" else 999
+
+def queue_preset(name: str):
+    st.session_state["_pending_preset"] = name
+
+def apply_pending_preset():
+    preset_name = st.session_state.get("_pending_preset")
+    if preset_name and preset_name in PRESETS:
+        for key, value in PRESETS[preset_name].items():
+            st.session_state[key] = value
+        st.session_state["_pending_preset"] = None
+
+def get_basket_list() -> list[str]:
+    raw = st.session_state.get("assets_input", "")
+    return [x.strip() for x in raw.splitlines() if x.strip()]
+
+def set_basket_list(tickers: list[str]):
+    cleaned = []
+    seen = set()
+    for t in tickers:
+        t = t.strip()
+        if t and t not in seen:
+            cleaned.append(t)
+            seen.add(t)
+    st.session_state["assets_input"] = "\n".join(cleaned)
+
+def add_ticker_to_basket(ticker: str):
+    basket = get_basket_list()
+    if ticker not in basket:
+        basket.append(ticker)
+        set_basket_list(basket)
+
+def add_multiple_tickers_to_basket(tickers: list[str]):
+    basket = get_basket_list()
+    existing = set(basket)
+    for t in tickers:
+        if t not in existing:
+            basket.append(t)
+            existing.add(t)
+    set_basket_list(basket)
+
+def remove_ticker_from_basket(ticker: str):
+    basket = [t for t in get_basket_list() if t != ticker]
+    set_basket_list(basket)
+
+def filter_asset_catalog(query: str) -> pd.DataFrame:
+    if not query.strip():
+        return ASSET_CATALOG_DF.copy()
+    q = query.strip().lower()
+    df = ASSET_CATALOG_DF.copy()
+    mask = (
+        df["ticker"].str.lower().str.contains(q, na=False) |
+        df["name"].str.lower().str.contains(q, na=False) |
+        df["isin"].str.lower().str.contains(q, na=False) |
+        df["wkn"].str.lower().str.contains(q, na=False)
+    )
+    return df.loc[mask].copy()
+
+def format_search_option(row: pd.Series, T: dict) -> str:
+    return T["search_option_format"].format(
+        ticker=row["ticker"],
+        name=row["name"],
+        isin=row["isin"],
+        wkn=row["wkn"],
+    )
+
+def sync_active_basket_from_state():
+    active = st.session_state.active_basket
+    if active not in st.session_state.baskets:
+        st.session_state.active_basket = list(st.session_state.baskets.keys())[0]
+        active = st.session_state.active_basket
+    if st.session_state.last_loaded_basket != active:
+        st.session_state.assets_input = st.session_state.baskets.get(active, "")
+        st.session_state.last_loaded_basket = active
+
+def save_active_basket_to_state():
+    active = st.session_state.active_basket
+    st.session_state.baskets[active] = st.session_state.get("assets_input", "")
+
+def load_close_prices(tickers, period):
+    series_map = {}
+    skipped = []
+    for t in tickers:
+        try:
+            raw = yf.download(t, period=period, progress=False, auto_adjust=False)
+        except Exception:
+            raw = pd.DataFrame()
+        if raw.empty:
+            skipped.append(t)
+            continue
+        if isinstance(raw.columns, pd.MultiIndex):
+            raw.columns = raw.columns.get_level_values(0)
+        if "Close" not in raw.columns:
+            skipped.append(t)
+            continue
+        s = pd.to_numeric(raw["Close"], errors="coerce").dropna().copy()
+        if s.empty:
+            skipped.append(t)
+            continue
+        s.name = t
+        series_map[t] = s
+    return series_map, skipped
+
+def align_price_series(series_map):
+    if not series_map:
+        return pd.DataFrame()
+    return pd.concat(series_map.values(), axis=1, join="inner").dropna()
+
+def load_single_close(ticker, period):
+    try:
+        raw = yf.download(ticker, period=period, progress=False, auto_adjust=False)
+    except Exception:
+        return pd.Series(dtype=float)
+    if raw.empty:
+        return pd.Series(dtype=float)
+    if isinstance(raw.columns, pd.MultiIndex):
+        raw.columns = raw.columns.get_level_values(0)
+    if "Close" not in raw.columns:
+        return pd.Series(dtype=float)
+    s = pd.to_numeric(raw["Close"], errors="coerce").dropna().copy()
+    s.name = ticker
+    return s
+
+def compute_metrics(equity: pd.Series):
+    returns = equity.pct_change().fillna(0)
+    total_return = (equity.iloc[-1] / equity.iloc[0] - 1) * 100
+    days = len(equity)
+    years = days / 252 if days > 0 else 0
+    if years > 0 and equity.iloc[0] > 0:
+        cagr = ((equity.iloc[-1] / equity.iloc[0]) ** (1 / years) - 1) * 100
+    else:
+        cagr = 0.0
+    rolling_max = equity.cummax()
+    drawdown = (equity / rolling_max - 1) * 100
+    max_dd = drawdown.min()
+    vol = returns.std() * np.sqrt(252) * 100
+    sharpe = 0.0
+    if returns.std() > 0:
+        sharpe = (returns.mean() / returns.std()) * np.sqrt(252)
+    return {
+        "total_return": float(total_return),
+        "cagr": float(cagr),
+        "max_dd": float(max_dd),
+        "volatility": float(vol),
+        "sharpe": float(sharpe),
+    }
+
+def is_rebalance_day(current_date, prev_date, mode):
+    if mode in ("Monatlich", "Monthly"):
+        return current_date.month != prev_date.month
+    if mode in ("Quartalsweise", "Quarterly"):
+        prev_q = (prev_date.month - 1) // 3
+        curr_q = (current_date.month - 1) // 3
+        return (current_date.year != prev_date.year) or (curr_q != prev_q)
+    return False
+
+def conviction_weights(score_series: pd.Series, max_weight: float, power: float) -> pd.Series:
+    s = score_series.copy().astype(float)
+    s = s[s > 0].copy()
+    if s.empty:
+        return s
+    s = s ** power
+    s = s / s.sum()
+    final = pd.Series(0.0, index=s.index)
+    remaining = 1.0
+    active = s.copy()
+    while len(active) > 0 and remaining > 1e-12:
+        active = active / active.sum()
+        proposed = active * remaining
+        capped_mask = proposed >= max_weight - 1e-12
+        if not capped_mask.any():
+            final.loc[active.index] += proposed
+            remaining = 0.0
+            break
+        capped_assets = proposed[capped_mask].index.tolist()
+        for asset in capped_assets:
+            addable = max_weight - final.loc[asset]
+            if addable > 0:
+                final.loc[asset] += addable
+                remaining -= addable
+        active = active.drop(index=capped_assets, errors="ignore")
+        if remaining <= 1e-12:
+            break
+    if final.sum() > 0:
+        final = final / final.sum()
+    return final
+
+def build_soft_cash_selection(score_today, trend_ok, top_n, min_score, invest_ratio, max_weight, power):
+    eligible = score_today[(trend_ok) & (score_today > min_score)].sort_values(ascending=False)
+    selected = eligible.head(top_n)
+    if len(selected) > 0:
+        weights = conviction_weights(selected, max_weight=max_weight, power=power)
+        return selected, weights, 1.0
+    fallback = score_today[trend_ok].sort_values(ascending=False).head(top_n)
+    fallback = fallback[fallback > -999]
+    if len(fallback) == 0:
+        return pd.Series(dtype=float), pd.Series(dtype=float), 0.0
+    shifted = fallback - fallback.min() + 1e-6
+    weights = conviction_weights(shifted, max_weight=max_weight, power=max(1.0, power - 0.5))
+    return fallback, weights, invest_ratio
+
+def simplify_weight_chart(weights_with_cash: pd.DataFrame, top_k: int, other_label: str):
+    cols_no_cash = [c for c in weights_with_cash.columns if c != "Cash"]
+    avg_weights = weights_with_cash[cols_no_cash].mean().sort_values(ascending=False)
+    keep = avg_weights.head(top_k).index.tolist()
+    other = [c for c in cols_no_cash if c not in keep]
+    out = pd.DataFrame(index=weights_with_cash.index)
+    for c in keep:
+        out[c] = weights_with_cash[c]
+    if other:
+        out[other_label] = weights_with_cash[other].sum(axis=1)
+    if "Cash" in weights_with_cash.columns:
+        out["Cash"] = weights_with_cash["Cash"]
+    return out
+
+def make_export_csv(df: pd.DataFrame) -> bytes:
+    return df.to_csv(index=False).encode("utf-8")
 
 # =========================
-# Apply presets and enforce rules
+# Apply preset / language
 # =========================
 apply_pending_preset()
 lang = st.session_state.get("language", "DE")
 T = TRANSLATIONS[lang]
-
-# Free-Regeln hart erzwingen vor dem Rendern
-if len(st.session_state.baskets) > get_max_baskets():
-    first_key = list(st.session_state.baskets.keys())[0]
-    first_val = st.session_state.baskets[first_key]
-    st.session_state.baskets = {first_key: first_val}
-    st.session_state.active_basket = first_key
-    st.session_state.last_loaded_basket = first_key
-    st.session_state.assets_input = first_val
-
-if st.session_state.get("subscription_tier", "Free") == "Free" and st.session_state.get("period") == "5y":
-    st.session_state.period = "3y"
-
-if st.session_state.get("subscription_tier", "Free") == "Free" and st.session_state.get("top_n", 4) > 4:
-    st.session_state.top_n = 4
 
 # =========================
 # Styling
@@ -914,21 +1094,20 @@ st.sidebar.header(T["subscription_header"])
 tier_options = ["Free", "Basic", "Pro", "Lifetime"]
 tier_icons = {"Free": "🆓", "Basic": "📘", "Pro": "🚀", "Lifetime": "💎"}
 
-st.sidebar.radio(
+selected_tier = st.sidebar.radio(
     T["subscription_label"],
     options=tier_options,
     format_func=lambda x: f"{tier_icons[x]} {x}",
     key="subscription_tier",
     horizontal=False,
 )
-
-tier = st.session_state.subscription_tier
+tier = selected_tier
 
 if tier == "Free":
     st.sidebar.warning(T["free_warning"])
     st.sidebar.link_button(T["upgrade_basic"], STRIPE_BASIC, use_container_width=True)
 elif tier == "Basic":
-    st.sidebar.success(T["basic_active"])
+    st.sidebar.info(T["basic_active"])
     st.sidebar.link_button(T["upgrade_pro"], STRIPE_PRO, use_container_width=True)
 elif tier == "Pro":
     st.sidebar.success(T["pro_active"])
@@ -936,20 +1115,8 @@ elif tier == "Pro":
 else:
     st.sidebar.success(T["lifetime_active"])
 
-# =========================
-# Basket management
-# =========================
 st.sidebar.header(T["basket_header"])
 basket_names = list(st.session_state.baskets.keys())
-
-if len(basket_names) > get_max_baskets():
-    first_key = list(st.session_state.baskets.keys())[0]
-    first_val = st.session_state.baskets[first_key]
-    st.session_state.baskets = {first_key: first_val}
-    basket_names = list(st.session_state.baskets.keys())
-    st.session_state.active_basket = first_key
-    st.session_state.last_loaded_basket = first_key
-    st.session_state.assets_input = first_val
 
 st.sidebar.selectbox(
     T["basket_select"],
@@ -967,7 +1134,7 @@ if st.sidebar.button(T["basket_add"], use_container_width=True):
         st.sidebar.error(T["basket_name_empty"])
     elif name in st.session_state.baskets:
         st.sidebar.error(T["basket_name_exists"])
-    elif len(st.session_state.baskets) >= get_max_baskets():
+    elif len(st.session_state.baskets) >= get_basket_limit():
         st.sidebar.warning(T["basket_limit_free"])
     else:
         save_active_basket_to_state()
@@ -1013,9 +1180,6 @@ if st.sidebar.button(T["basket_delete"], use_container_width=True):
 if tier == "Free" and len(st.session_state.baskets) >= 1:
     st.sidebar.caption(T["basket_limit_free"])
 
-# =========================
-# Settings
-# =========================
 st.sidebar.header(T["sidebar_settings"])
 
 initial_capital = st.sidebar.number_input(
@@ -1250,9 +1414,9 @@ save_active_basket_to_state()
 input_tickers = [x.strip() for x in assets_input.splitlines() if x.strip()]
 asset_count = len(input_tickers)
 max_assets = max(1, asset_count)
-
-max_top_n = min(4, max_assets) if tier == "Free" else max_assets
 current_top_n = int(st.session_state.get("top_n", 1))
+
+max_top_n = 4 if tier == "Free" else max_assets
 safe_top_n = max(1, min(current_top_n, max_top_n))
 
 if st.session_state.get("top_n") != safe_top_n:
@@ -1278,11 +1442,7 @@ else:
         disabled=True,
         help=T["top_n_help"],
     )
-    st.sidebar.caption(
-        "⚠️ Bitte mindestens 2 Assets im Korb lassen."
-        if lang == "DE"
-        else "⚠️ Please keep at least 2 assets in the basket."
-    )
+    st.sidebar.caption("⚠️ Bitte mindestens 2 Assets im Korb lassen." if lang == "DE" else "⚠️ Please keep at least 2 assets in the basket.")
 
 # =========================
 # Explainers
@@ -1301,18 +1461,6 @@ with st.expander(T["preset_expander"]):
 # =========================
 if st.sidebar.button(T["calculate"], type="primary"):
     save_active_basket_to_state()
-    tier = st.session_state.get("subscription_tier", "Free")
-
-    if tier == "Free":
-        if len(st.session_state.baskets) > 1:
-            st.error(T["error_rule_baskets"])
-            st.stop()
-        if period == "5y":
-            st.error(T["error_rule_period"])
-            st.stop()
-        if top_n > 4:
-            st.error(T["error_rule_topn"])
-            st.stop()
 
     with st.spinner(T["spinner"]):
         tickers = [x.strip() for x in st.session_state.get("assets_input", "").splitlines() if x.strip()]
@@ -1443,7 +1591,6 @@ if st.sidebar.button(T["calculate"], type="primary"):
                                 investable_capital = total_equity_before * invest_ratio
                                 for tkr in fallback_weights.index:
                                     target_values[tkr] = investable_capital * fallback_weights[tkr]
-
                                 target_weights_log[date] = {
                                     tkr: (target_values[tkr] / total_equity_before) for tkr in fallback_weights.index
                                 }
@@ -1469,7 +1616,6 @@ if st.sidebar.button(T["calculate"], type="primary"):
                             investable_capital = total_equity_before * invest_ratio
                             for tkr in fallback_weights.index:
                                 target_values[tkr] = investable_capital * fallback_weights[tkr]
-
                             target_weights_log[date] = {
                                 tkr: (target_values[tkr] / total_equity_before) for tkr in fallback_weights.index
                             }
@@ -1526,6 +1672,7 @@ if st.sidebar.button(T["calculate"], type="primary"):
                     weight_history.loc[date, tkr] = 0.0
                 cash_weight_history.loc[date] = 0.0
 
+        # Benchmark
         bh_shares = {tkr: 0.0 for tkr in tickers}
         equity_bh = pd.Series(index=dates, dtype=float)
         first_prices = prices.iloc[0]
@@ -1560,7 +1707,7 @@ if st.sidebar.button(T["calculate"], type="primary"):
 
         weights_df = pd.DataFrame({
             T["weights_ticker_col"]: list(current_weights.keys()),
-            T["weights_current_col"]: list(current_weights.values())
+            T["weights_current_col"]: list(current_weights.values()),
         }).sort_values(T["weights_current_col"], ascending=False)
 
         rebalance_df = pd.DataFrame(rebalance_log)
@@ -1571,7 +1718,7 @@ if st.sidebar.button(T["calculate"], type="primary"):
         weights_chart_df = simplify_weight_chart(
             weights_with_cash,
             top_k=weight_chart_top_n,
-            other_label=T["other_label"]
+            other_label=T["other_label"],
         )
 
         rebalance_dates = [entry[T["date_col"]] for entry in rebalance_log]
@@ -1579,6 +1726,7 @@ if st.sidebar.button(T["calculate"], type="primary"):
             weights_with_cash.index.intersection(rebalance_dates)
         ].copy()
 
+        # Status
         if outperformance_pp > 0:
             st.success(T["status_success"])
         elif outperformance_pp > -10:
@@ -1591,6 +1739,7 @@ if st.sidebar.button(T["calculate"], type="primary"):
         elif avg_cash_quote < 5:
             st.info(T["cash_low"])
 
+        # Metrics
         c1, c2, c3, c4 = st.columns(4)
         c1.metric(T["metric_bot_end"], f"{equity_bot.iloc[-1]:,.2f} €")
         c2.metric(T["metric_bh_end"], f"{equity_bh.iloc[-1]:,.2f} €")
@@ -1611,14 +1760,16 @@ if st.sidebar.button(T["calculate"], type="primary"):
 
         st.success(T["end_capital_success"].format(value=f"{equity_bot.iloc[-1]:,.2f} €"))
 
+        # Equity chart
         fig, ax = plt.subplots(figsize=(12, 6))
         ax.plot(equity_bot.index, equity_bot, label=T["equity_label_bot"], linewidth=2.5, color="lime")
-        ax.plot(equity_bh.index, equity_bh, label=T["equity_label_bh"], linewidth=2, color="gray")
+        ax.plot(equity_bh.index, equity_bh, label=T["equity_label_bh"], linewidth=2.0, color="gray")
         ax.set_title(T["equity_title"])
         ax.legend()
-        ax.grid(True)
+        ax.grid(True, alpha=0.25)
         st.pyplot(fig)
 
+        # Export
         st.markdown(f"### {T['export_title']}")
         st.caption(T["export_caption"])
 
@@ -1627,12 +1778,14 @@ if st.sidebar.button(T["calculate"], type="primary"):
             T["bot_portfolio_label"]: equity_bot.values,
             T["buy_hold_label"]: equity_bh.values,
             T["bh_cash_label"]: cash_bot.values,
-            T["invested_label"]: invested_bot.values
+            T["invested_label"]: invested_bot.values,
         })
 
         equity_csv = make_export_csv(export_equity_df)
         rebal_csv = make_export_csv(rebalance_df) if not rebalance_df.empty else b""
-        weights_csv = make_export_csv(weights_with_cash.reset_index().rename(columns={"index": T["date_col"]}))
+        weights_csv = make_export_csv(
+            weights_with_cash.reset_index().rename(columns={"index": T["date_col"]})
+        )
 
         col_exp1, col_exp2, col_exp3 = st.columns(3)
 
@@ -1695,6 +1848,7 @@ if st.sidebar.button(T["calculate"], type="primary"):
         base_colors = list(plt.cm.tab20.colors)
         colors = []
         normal_idx = 0
+
         for col in chart_cols:
             if col == "Cash":
                 colors.append((0.50, 0.50, 0.50))
@@ -1710,7 +1864,7 @@ if st.sidebar.button(T["calculate"], type="primary"):
             *[weights_chart_df[col] for col in chart_cols],
             labels=chart_cols,
             colors=colors,
-            alpha=0.95
+            alpha=0.95,
         )
         ax2.set_title(T["weights_chart_inner_title"])
         ax2.set_ylabel(T["weights_chart_ylabel"])
@@ -1724,12 +1878,13 @@ if st.sidebar.button(T["calculate"], type="primary"):
                 last_selection_date = max(selected_assets_log.keys())
                 st.write(T["last_selection_date"].format(date=last_selection_date.date()))
                 st.write(selected_assets_log[last_selection_date])
+
                 st.write(T["last_target_weights"])
                 last_weights = target_weights_log.get(last_selection_date, {})
                 if last_weights:
                     last_weights_df = pd.DataFrame({
                         T["weights_ticker_col"]: list(last_weights.keys()),
-                        T["weights_target_col"]: [v * 100 for v in last_weights.values()]
+                        T["weights_target_col"]: [v * 100 for v in last_weights.values()],
                     }).sort_values(T["weights_target_col"], ascending=False)
                     st.dataframe(last_weights_df.round(2), use_container_width=True)
                 else:
