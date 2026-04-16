@@ -201,6 +201,27 @@ def get_auth_texts(lang: str) -> dict:
 
 ensure_auth_session_state()
 init_user_db()
+
+
+# =========================
+# Hard Limits
+# =========================
+def get_current_tier() -> str:
+    tier = st.session_state.get("subscription_tier", "Free")
+    return tier if tier in TIERS else "Free"
+
+def get_max_baskets() -> int:
+    return 1 if get_current_tier() == "Free" else 999
+
+def get_max_period() -> str:
+    return "3y" if get_current_tier() == "Free" else "5y"
+
+def can_use_asset_search() -> bool:
+    return get_current_tier() in ["Basic", "Pro", "Lifetime"]
+
+def can_export_full() -> bool:
+    return get_current_tier() != "Free"
+
 # =========================
 # Defaults / Session State
 # =========================
@@ -208,7 +229,7 @@ defaults = {
     "language": "DE",
     "initial_capital": 10000,
     "monthly_savings": 500,
-    "period": "5y",
+    "period": get_max_period(),
     "rebalance_freq": "Monatlich",
     "fee_pct_input": 0.10,
     "min_score": 0.00,
