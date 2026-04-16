@@ -115,6 +115,7 @@ TEXT = {
                 "url": APP_URL,
                 "badge": "",
                 "highlight": False,
+                "accent": "free",
                 "button_kind": "secondary",
             },
             {
@@ -126,6 +127,7 @@ TEXT = {
                 "url": STRIPE_BASIC,
                 "badge": "",
                 "highlight": False,
+                "accent": "basic",
                 "button_kind": "secondary",
             },
             {
@@ -137,6 +139,7 @@ TEXT = {
                 "url": STRIPE_PRO,
                 "badge": "Beliebteste Wahl",
                 "highlight": True,
+                "accent": "pro",
                 "button_kind": "primary",
             },
             {
@@ -148,6 +151,7 @@ TEXT = {
                 "url": STRIPE_LIFETIME,
                 "badge": "Limitiert",
                 "highlight": False,
+                "accent": "lifetime",
                 "button_kind": "secondary",
             },
         ],
@@ -276,6 +280,7 @@ TEXT = {
                 "url": APP_URL,
                 "badge": "",
                 "highlight": False,
+                "accent": "free",
                 "button_kind": "secondary",
             },
             {
@@ -287,6 +292,7 @@ TEXT = {
                 "url": STRIPE_BASIC,
                 "badge": "",
                 "highlight": False,
+                "accent": "basic",
                 "button_kind": "secondary",
             },
             {
@@ -298,6 +304,7 @@ TEXT = {
                 "url": STRIPE_PRO,
                 "badge": "Most Popular",
                 "highlight": True,
+                "accent": "pro",
                 "button_kind": "primary",
             },
             {
@@ -309,6 +316,7 @@ TEXT = {
                 "url": STRIPE_LIFETIME,
                 "badge": "Limited",
                 "highlight": False,
+                "accent": "lifetime",
                 "button_kind": "secondary",
             },
         ],
@@ -348,6 +356,57 @@ TEXT = {
     },
 }
 
+def section_header(label: str, title: str, text: str):
+    st.markdown(f"<div class='section-label'>{label}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='section-title'>{title}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='section-text'>{text}</div>", unsafe_allow_html=True)
+
+def render_feature_card(icon: str, title: str, text: str, cls: str):
+    st.markdown(f"<div class='{cls}'>", unsafe_allow_html=True)
+    with st.container(border=True):
+        st.markdown(f"<div class='feature-icon'>{icon}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='feature-title'>{title}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='feature-text'>{text}</div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+def render_step_card(num: str, title: str, text: str, cls: str):
+    st.markdown(f"<div class='{cls}'>", unsafe_allow_html=True)
+    with st.container(border=True):
+        st.markdown(f"<div class='step-number'>{num}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='step-title'>{title}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='step-text'>{text}</div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+def render_pricing_card(plan: dict, idx: int):
+    accent = plan.get("accent", "free")
+    wrapper_cls = f"pricing-wrapper pricing-{accent}"
+    st.markdown(f"<div class='{wrapper_cls}'>", unsafe_allow_html=True)
+
+    if plan["badge"]:
+        badge_cls = "badge-popular" if plan["highlight"] else "badge-limited"
+        st.markdown(
+            f"<span class='pricing-badge {badge_cls}'>{plan['badge']}</span>",
+            unsafe_allow_html=True,
+        )
+
+    with st.container(border=True):
+        st.markdown(f"<div class='plan-name'>{plan['name']}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='plan-price'>{plan['price']}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='plan-period'>{plan['period']}</div>", unsafe_allow_html=True)
+        st.markdown("<div class='plan-divider'></div>", unsafe_allow_html=True)
+
+        for feature in plan["features"]:
+            st.markdown(f"<div class='plan-feature'>✓ {feature}</div>", unsafe_allow_html=True)
+
+        st.markdown("<div class='plan-spacer'></div>", unsafe_allow_html=True)
+
+        button_cls = "primary" if plan["button_kind"] == "primary" else "secondary"
+        st.markdown(f"<div class='pricing-link {button_cls}'>", unsafe_allow_html=True)
+        st.link_button(plan["button"], plan["url"], use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
 t = TEXT[st.session_state.lang]
 
 st.markdown(
@@ -357,14 +416,18 @@ st.markdown(
             :root{
                 --bg:#0f172a;
                 --card:#1e2937;
-                --card-2:#243447;
+                --card-soft:#243447;
                 --text:#f8fafc;
                 --muted:rgba(248,250,252,0.78);
                 --line:rgba(255,255,255,0.08);
                 --green:#22c55e;
                 --green-dark:#16a34a;
+                --green-soft:#86efac;
                 --blue:#3b82f6;
                 --blue-dark:#2563eb;
+                --blue-soft:#93c5fd;
+                --orange:#f59e0b;
+                --orange-soft:#fcd34d;
                 --shadow:0 18px 40px rgba(0,0,0,0.28);
                 --shadow-hover:0 28px 60px rgba(0,0,0,0.38);
             }
@@ -406,7 +469,7 @@ st.markdown(
                     linear-gradient(135deg, rgba(15,23,42,0.98) 0%, rgba(30,41,59,0.98) 100%);
                 border:1px solid rgba(255,255,255,0.08);
                 box-shadow:0 30px 90px rgba(0,0,0,0.38);
-                margin-bottom:1.15rem;
+                margin-bottom:1.2rem;
                 animation:fadeUp .55s ease both;
             }
 
@@ -492,7 +555,7 @@ st.markdown(
                 font-size:1.14rem;
                 line-height:1.72;
                 max-width:920px;
-                margin-bottom:1.1rem;
+                margin-bottom:1.25rem;
             }
 
             .feature-icon{
@@ -557,26 +620,27 @@ st.markdown(
                 display:inline-flex;
                 align-items:center;
                 justify-content:center;
-                padding:.42rem .8rem;
+                padding:.44rem .84rem;
                 border-radius:999px;
                 font-size:.78rem;
                 font-weight:800;
                 letter-spacing:.01em;
-                margin-bottom:.55rem;
+                margin-bottom:.7rem;
+                transition:all .3s ease;
             }
 
             .badge-popular{
-                background:linear-gradient(135deg, rgba(34,197,94,0.22), rgba(34,197,94,0.12));
-                color:#d9f99d;
-                border:1px solid rgba(34,197,94,0.38);
-                box-shadow:0 6px 20px rgba(34,197,94,0.16);
+                background:linear-gradient(135deg, rgba(34,197,94,0.30), rgba(34,197,94,0.14));
+                color:#ecfccb;
+                border:1px solid rgba(34,197,94,0.46);
+                box-shadow:0 10px 28px rgba(34,197,94,0.18);
             }
 
             .badge-limited{
-                background:linear-gradient(135deg, rgba(96,165,250,0.18), rgba(59,130,246,0.08));
+                background:linear-gradient(135deg, rgba(96,165,250,0.22), rgba(59,130,246,0.10));
                 color:#dbeafe;
-                border:1px solid rgba(96,165,250,0.26);
-                box-shadow:0 6px 20px rgba(59,130,246,0.14);
+                border:1px solid rgba(96,165,250,0.32);
+                box-shadow:0 10px 28px rgba(59,130,246,0.16);
             }
 
             .plan-name{
@@ -588,7 +652,7 @@ st.markdown(
             }
 
             .plan-price{
-                font-size:3.2rem;
+                font-size:3.35rem;
                 line-height:.98;
                 font-weight:900;
                 letter-spacing:-.07em;
@@ -599,7 +663,7 @@ st.markdown(
             .plan-period{
                 color:rgba(248,250,252,0.68);
                 font-size:1.02rem;
-                margin-bottom:.9rem;
+                margin-bottom:.95rem;
             }
 
             .plan-divider{
@@ -609,10 +673,14 @@ st.markdown(
             }
 
             .plan-feature{
-                color:rgba(248,250,252,0.86);
+                color:rgba(248,250,252,0.88);
                 font-size:1.06rem;
-                line-height:1.6;
-                margin-bottom:.65rem;
+                line-height:1.62;
+                margin-bottom:.72rem;
+            }
+
+            .plan-spacer{
+                height:.9rem;
             }
 
             .faq-title{
@@ -625,12 +693,14 @@ st.markdown(
                 max-width:780px;
             }
 
+            /* -------- Core cards -------- */
             [data-testid="stVerticalBlockBorderWrapper"]{
                 border-radius:22px !important;
                 border:1px solid rgba(255,255,255,0.08) !important;
                 background:linear-gradient(180deg, rgba(30,41,59,0.98) 0%, rgba(25,36,53,0.98) 100%) !important;
                 box-shadow:0 18px 40px rgba(0,0,0,0.28) !important;
-                transition:all .3s ease !important;
+                transition:all .32s ease !important;
+                overflow:hidden !important;
             }
 
             [data-testid="stVerticalBlockBorderWrapper"]:hover{
@@ -639,6 +709,77 @@ st.markdown(
                 border-color:rgba(255,255,255,0.14) !important;
             }
 
+            /* Prevent bottom clipping feeling */
+            .feature-card-wrap [data-testid="stVerticalBlockBorderWrapper"],
+            .step-card-wrap [data-testid="stVerticalBlockBorderWrapper"]{
+                min-height:100%;
+                padding-bottom:.15rem;
+            }
+
+            /* -------- Pricing wrappers -------- */
+            .pricing-wrapper{
+                animation:fadeUp .55s ease both;
+            }
+
+            .pricing-wrapper [data-testid="stVerticalBlockBorderWrapper"]{
+                min-height:100%;
+                padding-bottom:.1rem;
+            }
+
+            .pricing-free [data-testid="stVerticalBlockBorderWrapper"]{
+                background:
+                    radial-gradient(circle at top left, rgba(59,130,246,0.09), transparent 28%),
+                    linear-gradient(180deg, rgba(19,32,57,0.98) 0%, rgba(18,30,52,0.98) 100%) !important;
+            }
+
+            .pricing-basic [data-testid="stVerticalBlockBorderWrapper"]{
+                background:
+                    radial-gradient(circle at top right, rgba(96,165,250,0.10), transparent 25%),
+                    linear-gradient(180deg, rgba(22,35,61,0.98) 0%, rgba(20,34,57,0.98) 100%) !important;
+                border-color:rgba(96,165,250,0.18) !important;
+            }
+
+            .pricing-basic [data-testid="stVerticalBlockBorderWrapper"]:hover{
+                border-color:rgba(96,165,250,0.34) !important;
+                box-shadow:
+                    0 28px 60px rgba(0,0,0,0.38),
+                    0 0 0 1px rgba(96,165,250,0.14) !important;
+            }
+
+            .pricing-pro [data-testid="stVerticalBlockBorderWrapper"]{
+                background:
+                    radial-gradient(circle at top right, rgba(34,197,94,0.22), transparent 28%),
+                    radial-gradient(circle at bottom left, rgba(34,197,94,0.12), transparent 24%),
+                    linear-gradient(180deg, rgba(23,44,39,0.98) 0%, rgba(21,38,37,0.98) 100%) !important;
+                border:1px solid rgba(34,197,94,0.34) !important;
+                box-shadow:
+                    0 20px 44px rgba(0,0,0,0.30),
+                    0 0 0 1px rgba(34,197,94,0.12) !important;
+            }
+
+            .pricing-pro [data-testid="stVerticalBlockBorderWrapper"]:hover{
+                transform:translateY(-10px) scale(1.04);
+                box-shadow:
+                    0 30px 68px rgba(0,0,0,0.40),
+                    0 0 0 1px rgba(34,197,94,0.18),
+                    0 0 36px rgba(34,197,94,0.18) !important;
+            }
+
+            .pricing-lifetime [data-testid="stVerticalBlockBorderWrapper"]{
+                background:
+                    radial-gradient(circle at top right, rgba(96,165,250,0.14), transparent 26%),
+                    linear-gradient(180deg, rgba(27,39,66,0.98) 0%, rgba(23,34,58,0.98) 100%) !important;
+                border-color:rgba(96,165,250,0.22) !important;
+            }
+
+            .pricing-lifetime [data-testid="stVerticalBlockBorderWrapper"]:hover{
+                border-color:rgba(96,165,250,0.34) !important;
+                box-shadow:
+                    0 28px 60px rgba(0,0,0,0.38),
+                    0 0 0 1px rgba(96,165,250,0.12) !important;
+            }
+
+            /* -------- Buttons -------- */
             .hero-btn [data-testid="stLinkButton"] > a{
                 min-height:58px;
                 border-radius:16px;
@@ -669,21 +810,28 @@ st.markdown(
             }
 
             .pricing-link.secondary [data-testid="stLinkButton"] > a{
-                background:linear-gradient(135deg, rgba(59,130,246,0.95) 0%, rgba(37,99,235,0.95) 100%);
-                box-shadow:0 10px 24px rgba(59,130,246,0.22);
+                background:linear-gradient(135deg, rgba(59,130,246,0.96) 0%, rgba(37,99,235,0.96) 100%);
+                box-shadow:0 12px 26px rgba(59,130,246,0.24);
             }
 
             .pricing-link.primary [data-testid="stLinkButton"] > a{
                 background:linear-gradient(135deg, var(--green) 0%, var(--green-dark) 100%);
-                box-shadow:0 12px 28px rgba(34,197,94,0.28);
+                box-shadow:0 14px 30px rgba(34,197,94,0.30);
             }
 
             .pricing-link [data-testid="stLinkButton"] > a:hover{
                 transform:translateY(-6px) scale(1.05);
-                box-shadow:0 20px 40px rgba(0,0,0,0.28);
+                box-shadow:0 22px 42px rgba(0,0,0,0.30);
                 color:white !important;
             }
 
+            .pricing-link.primary [data-testid="stLinkButton"] > a:hover{
+                box-shadow:
+                    0 22px 46px rgba(34,197,94,0.34),
+                    0 0 24px rgba(34,197,94,0.20);
+            }
+
+            /* -------- FAQ -------- */
             .stExpander{
                 border:1px solid rgba(255,255,255,0.08) !important;
                 border-radius:18px !important;
@@ -721,47 +869,6 @@ st.markdown(
     ),
     unsafe_allow_html=True,
 )
-
-def section_header(label: str, title: str, text: str):
-    st.markdown(f"<div class='section-label'>{label}</div>", unsafe_allow_html=True)
-    st.markdown(f"<div class='section-title'>{title}</div>", unsafe_allow_html=True)
-    st.markdown(f"<div class='section-text'>{text}</div>", unsafe_allow_html=True)
-
-def render_feature_card(icon: str, title: str, text: str):
-    with st.container(border=True):
-        st.markdown(f"<div class='feature-icon'>{icon}</div>", unsafe_allow_html=True)
-        st.markdown(f"<div class='feature-title'>{title}</div>", unsafe_allow_html=True)
-        st.markdown(f"<div class='feature-text'>{text}</div>", unsafe_allow_html=True)
-
-def render_step_card(num: str, title: str, text: str):
-    with st.container(border=True):
-        st.markdown(f"<div class='step-number'>{num}</div>", unsafe_allow_html=True)
-        st.markdown(f"<div class='step-title'>{title}</div>", unsafe_allow_html=True)
-        st.markdown(f"<div class='step-text'>{text}</div>", unsafe_allow_html=True)
-
-def render_pricing_card(plan: dict, idx: int):
-    if plan["badge"]:
-        badge_cls = "badge-popular" if plan["highlight"] else "badge-limited"
-        st.markdown(
-            f"<span class='pricing-badge {badge_cls}'>{plan['badge']}</span>",
-            unsafe_allow_html=True,
-        )
-
-    with st.container(border=True):
-        st.markdown(f"<div class='plan-name'>{plan['name']}</div>", unsafe_allow_html=True)
-        st.markdown(f"<div class='plan-price'>{plan['price']}</div>", unsafe_allow_html=True)
-        st.markdown(f"<div class='plan-period'>{plan['period']}</div>", unsafe_allow_html=True)
-        st.markdown("<div class='plan-divider'></div>", unsafe_allow_html=True)
-
-        for feature in plan["features"]:
-            st.markdown(f"<div class='plan-feature'>✓ {feature}</div>", unsafe_allow_html=True)
-
-        st.markdown("<div style='height:.7rem'></div>", unsafe_allow_html=True)
-
-        cls = "primary" if plan["button_kind"] == "primary" else "secondary"
-        st.markdown(f"<div class='pricing-link {cls}'>", unsafe_allow_html=True)
-        st.link_button(plan["button"], plan["url"], use_container_width=True)
-        st.markdown("</div>", unsafe_allow_html=True)
 
 lang_left, lang_right = st.columns([8, 2], vertical_alignment="center")
 with lang_right:
@@ -809,22 +916,22 @@ section_header(t["why_label"], t["why_title"], t["why_text"])
 feature_cols_top = st.columns(2, gap="large")
 for i, feature in enumerate(t["features"][:2]):
     with feature_cols_top[i]:
-        render_feature_card(*feature)
+        render_feature_card(*feature, cls="feature-card-wrap")
 
 feature_cols_bottom = st.columns(2, gap="large")
 for i, feature in enumerate(t["features"][2:]):
     with feature_cols_bottom[i]:
-        render_feature_card(*feature)
+        render_feature_card(*feature, cls="feature-card-wrap")
 
-st.markdown("<div style='height:1.35rem'></div>", unsafe_allow_html=True)
+st.markdown("<div style='height:1.55rem'></div>", unsafe_allow_html=True)
 section_header(t["how_label"], t["how_title"], t["how_text"])
 
 step_cols = st.columns(5, gap="medium")
 for i, step in enumerate(t["steps"]):
     with step_cols[i]:
-        render_step_card(*step)
+        render_step_card(*step, cls="step-card-wrap")
 
-st.markdown("<div style='height:1.35rem'></div>", unsafe_allow_html=True)
+st.markdown("<div style='height:1.55rem'></div>", unsafe_allow_html=True)
 section_header(t["pricing_label"], t["pricing_title"], t["pricing_text"])
 
 plan_cols = st.columns(4, gap="large")
@@ -832,9 +939,9 @@ for idx, plan in enumerate(t["plans"]):
     with plan_cols[idx]:
         render_pricing_card(plan, idx)
 
-st.markdown("<div style='height:1.35rem'></div>", unsafe_allow_html=True)
+st.markdown("<div style='height:1.55rem'></div>", unsafe_allow_html=True)
 st.markdown(f"<div class='section-label'>{t['faq_label']}</div>", unsafe_allow_html=True)
-st.markdown(f"<div class='section-title' style='max-width:780px;'>{t['faq_title']}</div>", unsafe_allow_html=True)
+st.markdown(f"<div class='faq-title'>{t['faq_title']}</div>", unsafe_allow_html=True)
 st.markdown(f"<div class='section-text'>{t['faq_text']}</div>", unsafe_allow_html=True)
 
 for question, answer in t["faq"]:
