@@ -3,3 +3,7 @@ yfinance
 pandas
 numpy
 matplotlib
+fastapi
+uvicorn
+stripe
+supabase
