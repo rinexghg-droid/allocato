@@ -42,17 +42,25 @@ st.markdown(
         margin-bottom: 0.4rem;
     }
     .story-box {
-        background: #f8fafc;
-        border: 1px solid #e5e7eb;
+        background: linear-gradient(135deg, rgba(15,23,42,0.92) 0%, rgba(30,41,59,0.92) 100%);
+        border: 1px solid rgba(255,255,255,0.08);
         padding: 1rem 1.1rem;
         border-radius: 16px;
         margin-top: 0.8rem;
         margin-bottom: 0.8rem;
+        color: rgba(255,255,255,0.95);
     }
     .small-note {
-        color: #4b5563;
+        color: rgba(255,255,255,0.72);
         font-size: 0.95rem;
         line-height: 1.45;
+    }
+    .section-label {
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        opacity: 0.7;
+        margin-bottom: 0.4rem;
     }
     </style>
     """,
@@ -74,7 +82,7 @@ st.markdown(
         <span class="hero-badge">Dynamic Allocation</span>
         <span class="hero-badge">Direct Equity Ownership</span>
         <span class="hero-badge">Buy & Hold Benchmark</span>
-        <span class="hero-badge">Launch Version 5.0.1</span>
+        <span class="hero-badge">Launch Version 5.0.2</span>
     </div>
     """,
     unsafe_allow_html=True
@@ -83,9 +91,10 @@ st.markdown(
 st.markdown(
     """
     <div class="story-box">
-        <b>Warum Allocato?</b><br>
-        Viele Menschen stecken ihr Geld in Produkte, deren Regeln sie kaum kennen,
-        zahlen laufende Gebühren und geben die Steuerung komplett aus der Hand.
+        <div class="section-label">Warum Allocato?</div>
+        <b>Mehr Kontrolle. Mehr Transparenz. Mehr Eigentum.</b><br><br>
+        Viele Anleger stecken ihr Geld in Produkte, deren Regeln sie kaum kennen,
+        zahlen laufende Gebühren und geben Entscheidungen komplett aus der Hand.
         Allocato geht den anderen Weg:
         <br><br>
         <b>Du definierst den Anlagekorb. Die Engine übernimmt die Logik.</b><br>
@@ -93,9 +102,9 @@ st.markdown(
         und versucht, Kapital intelligent statt passiv zu allokieren.
         <br><br>
         <span class="small-note">
-        Allocato ist kein Versprechen auf sichere Gewinne. Es ist ein Werkzeug für Anleger,
-        die bewusstere Entscheidungen treffen wollen — mit mehr Eigentum, mehr Transparenz
-        und weniger Abhängigkeit von Standardlösungen.
+        Allocato ist kein Versprechen auf sichere Gewinne.
+        Es ist ein Werkzeug für Anleger, die bewusstere Entscheidungen treffen wollen —
+        mit mehr Eigentum, mehr Transparenz und weniger Abhängigkeit von Standardlösungen.
         </span>
     </div>
     """,
