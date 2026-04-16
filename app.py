@@ -1272,23 +1272,38 @@ assets_input = st.sidebar.text_area(
 )
 
 input_tickers = [x.strip() for x in assets_input.splitlines() if x.strip()]
-max_assets = max(1, len(input_tickers))
+asset_count = len(input_tickers)
+max_assets = max(1, asset_count)
 
-current_top_n = st.session_state.get("top_n", 1)
-safe_top_n = min(max(1, current_top_n), max_assets)
-st.session_state["top_n"] = safe_top_n
+current_top_n = int(st.session_state.get("top_n", 1))
+safe_top_n = max(1, min(current_top_n, max_assets))
 
-top_n = st.sidebar.slider(
-    T["top_n"],
-    min_value=1,
-    max_value=max_assets,
-    value=safe_top_n,
-    key="top_n",
-    help=T["top_n_help"],
-)
-if len(input_tickers) < 2:
-    st.sidebar.caption("⚠️ Für die Berechnung werden mindestens 2 Assets benötigt.")
+# Session-State immer auf gültigen Bereich zurücksetzen
+if st.session_state.get("top_n") != safe_top_n:
+    st.session_state["top_n"] = safe_top_n
 
+if asset_count >= 2:
+    top_n = st.sidebar.slider(
+        "Top-N Assets halten",
+        min_value=1,
+        max_value=max_assets,
+        value=safe_top_n,
+        key="top_n",
+        help="Wie viele der stärksten Assets gleichzeitig gehalten werden."
+    )
+else:
+    st.session_state["top_n"] = 1
+    top_n = 1
+
+    st.sidebar.number_input(
+        "Top-N Assets halten",
+        min_value=1,
+        max_value=1,
+        value=1,
+        disabled=True,
+        help="Für die Berechnung werden mindestens 2 Assets benötigt."
+    )
+    st.sidebar.caption("⚠️ Bitte mindestens 2 Assets im Korb lassen.")
 # =========================
 # Explainers
 # =========================
