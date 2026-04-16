@@ -5,7 +5,102 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 st.set_page_config(page_title="Allocato", layout="wide")
-st.title("🚀 Allocato - Version 5.0 Launch")
+
+# =========================
+# Branding / Header
+# =========================
+st.markdown(
+    """
+    <style>
+    .hero-box {
+        background: linear-gradient(135deg, #0f172a 0%, #111827 45%, #1f2937 100%);
+        padding: 1.4rem 1.6rem;
+        border-radius: 18px;
+        color: white;
+        margin-bottom: 1rem;
+        border: 1px solid rgba(255,255,255,0.08);
+    }
+    .hero-title {
+        font-size: 2.0rem;
+        font-weight: 800;
+        margin-bottom: 0.2rem;
+        letter-spacing: -0.02em;
+    }
+    .hero-sub {
+        font-size: 1.05rem;
+        opacity: 0.95;
+        margin-bottom: 0.8rem;
+        line-height: 1.45;
+    }
+    .hero-badge {
+        display: inline-block;
+        background: rgba(255,255,255,0.12);
+        padding: 0.35rem 0.7rem;
+        border-radius: 999px;
+        font-size: 0.85rem;
+        margin-right: 0.4rem;
+        margin-bottom: 0.4rem;
+    }
+    .story-box {
+        background: #f8fafc;
+        border: 1px solid #e5e7eb;
+        padding: 1rem 1.1rem;
+        border-radius: 16px;
+        margin-top: 0.8rem;
+        margin-bottom: 0.8rem;
+    }
+    .small-note {
+        color: #4b5563;
+        font-size: 0.95rem;
+        line-height: 1.45;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+st.markdown(
+    """
+    <div class="hero-box">
+        <div class="hero-title">🚀 Allocato</div>
+        <div class="hero-sub">
+            Dein smarter Portfolio-Manager für Direktaktien.
+            Nicht blind kaufen. Nicht unnötig Gebühren zahlen.
+            Nicht darauf hoffen, dass irgendein Produkt schon irgendwie passt.
+            <br><br>
+            Allocato hilft dir, ein dynamisch gesteuertes Portfolio aufzubauen,
+            in dem du <b>Kontrolle, Transparenz und Dividenden direkt selbst</b> behältst.
+        </div>
+        <span class="hero-badge">Dynamic Allocation</span>
+        <span class="hero-badge">Direct Equity Ownership</span>
+        <span class="hero-badge">Buy & Hold Benchmark</span>
+        <span class="hero-badge">Launch Version 5.0.1</span>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+st.markdown(
+    """
+    <div class="story-box">
+        <b>Warum Allocato?</b><br>
+        Viele Menschen stecken ihr Geld in Produkte, deren Regeln sie kaum kennen,
+        zahlen laufende Gebühren und geben die Steuerung komplett aus der Hand.
+        Allocato geht den anderen Weg:
+        <br><br>
+        <b>Du definierst den Anlagekorb. Die Engine übernimmt die Logik.</b><br>
+        Sie bewertet Momentum, Trend und Risiko, gewichtet die stärksten Titel neu
+        und versucht, Kapital intelligent statt passiv zu allokieren.
+        <br><br>
+        <span class="small-note">
+        Allocato ist kein Versprechen auf sichere Gewinne. Es ist ein Werkzeug für Anleger,
+        die bewusstere Entscheidungen treffen wollen — mit mehr Eigentum, mehr Transparenz
+        und weniger Abhängigkeit von Standardlösungen.
+        </span>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
 # =========================
 # Defaults / Session State
@@ -462,25 +557,23 @@ top_n = st.sidebar.slider(
 # =========================
 # Erklärungen
 # =========================
-with st.expander("ℹ️ Was macht dieser Bot?"):
+with st.expander("ℹ️ Was ist Allocato?"):
     st.markdown("""
-Dieser Bot ist ein **aggressiver dynamischer Portfolio-Manager**.
+Allocato ist für Anleger gedacht, die mehr Kontrolle über ihr Kapital wollen.
 
-Er:
-1. lädt Kursdaten für deinen Asset-Korb,
-2. berechnet einen **Score** je Asset aus:
-   - 6-Monats-Momentum
-   - 3-Monats-Momentum
-   - Volatilitätsstrafe
-3. prüft zusätzlich den **Trendfilter** (`Kurs > SMA200`),
-4. wählt die **Top-N stärksten Assets**,
-5. gewichtet sie **nicht gleichmäßig**, sondern **aggressiv proportional zum Score**,
-6. hält Cash nur begrenzt und versucht meist in einem Bereich von ca. **5–15% Cashquote** zu bleiben,
-7. kann optional im **Soft Cash Mode** auch in schwächeren Phasen teilweise investiert bleiben.
+Nicht blind kaufen.  
+Nicht dauerhaft Gebühren zahlen, ohne zu wissen, was im Produkt eigentlich passiert.  
+Nicht Dividendenströme und Entscheidungen komplett auslagern.
 
-Der Vergleich mit **Buy & Hold** ist fair, weil beide Strategien dieselben Cashflows haben:
-- gleiches Startkapital
-- gleiche monatliche Sparrate
+**Die Idee hinter Allocato:**
+Du definierst deinen Anlagekorb selbst.  
+Die Engine bewertet Stärke, Trend und Risiko und verteilt das Kapital dynamisch auf die stärksten Titel.
+
+Damit entsteht ein Portfolio-Manager für Direktaktien und ETFs, der versucht:
+- Chancen aktiv zu nutzen
+- Cash bewusst zu steuern
+- Risiko kontrollierbarer zu halten
+- und Entscheidungen nachvollziehbar zu machen
 """)
 
 with st.expander("🧠 Wie interpretiere ich die Kennzahlen?"):
@@ -1020,4 +1113,4 @@ if st.sidebar.button("Portfolio berechnen", type="primary"):
                 st.dataframe(raw_score.tail(), use_container_width=True)
 
 else:
-    st.info("👈 Gib deinen Asset-Korb ein, stelle die aggressiven Parameter ein und klicke auf 'Portfolio berechnen'.")
+    st.info("👈 Wähle ein Setup oder gib deinen Asset-Korb ein und klicke auf 'Portfolio berechnen'.")
