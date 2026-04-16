@@ -8,7 +8,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-APP_URL = "https://allocato-mjom8nlqegetdiglcj3xnj.streamlit.app/"
+APP_URL = "https://allocato.streamlit.app/Allocato"
 
 if "lang" not in st.session_state:
     st.session_state.lang = "DE"
