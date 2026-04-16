@@ -4,262 +4,37 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-st.set_page_config(page_title="Heftiger Portfolio Bot", layout="wide")
-st.title("🚀 Heftiger Portfolio Bot - Version 5.0 Launch")
+st.set_page_config(page_title="Allocato", layout="wide")
+st.title("🚀 Allocato - Version 5.0 Launch")
 
 # =========================
-# Sidebar
+# Defaults / Session State
 # =========================
-st.sidebar.header("Einstellungen")
+defaults = {
+    "initial_capital": 10000,
+    "monthly_savings": 500,
+    "period": "5y",
+    "rebalance_freq": "Monatlich",
+    "fee_pct_input": 0.10,
+    "min_score": 0.00,
+    "max_weight_pct": 55,
+    "vol_penalty": 0.08,
+    "cash_interest_pct": 0.00,
+    "use_regime_filter": False,
+    "show_debug": False,
+    "conviction_power": 2.0,
+    "soft_cash_mode": True,
+    "target_cash_floor_pct": 5,
+    "target_cash_ceiling_pct": 15,
+    "soft_cash_invest_ratio_pct": 85,
+    "weight_chart_top_n": 8,
+    "top_n": 4,
+    "assets_input": "AAPL\nSAP.DE\nSIE.DE\nALV.DE\nMUV2.DE\nJNJ\nPG",
+}
 
-initial_capital = st.sidebar.number_input(
-    "Startkapital (€)",
-    value=10000,
-    step=1000,
-    help="Einmalige Anfangsinvestition."
-)
-
-monthly_savings = st.sidebar.number_input(
-    "Monatliche Sparrate (€)",
-    value=500,
-    step=50,
-    help="Zusätzlicher Betrag, der bei Monatswechsel investierbar wird."
-)
-
-period = st.sidebar.selectbox(
-    "Zeitraum",
-    ["1y", "2y", "3y", "5y"],
-    index=3,
-    help="Für Momentum-Strategien sind 3 bis 5 Jahre meist am sinnvollsten."
-)
-
-rebalance_freq = st.sidebar.selectbox(
-    "Rebalancing",
-    ["Monatlich", "Quartalsweise"],
-    index=0,
-    help="Wie oft das Portfolio neu bewertet und angepasst wird."
-)
-
-fee_pct = st.sidebar.number_input(
-    "Transaktionskosten pro Trade (%)",
-    value=0.10,
-    step=0.01,
-    format="%.2f",
-    help="Gebühren und Slippage pro Umschichtung."
-) / 100.0
-
-min_score = st.sidebar.number_input(
-    "Mindest-Score für Kauf",
-    value=0.00,
-    step=0.01,
-    format="%.2f",
-    help="Nur Assets mit Score über diesem Wert dürfen gekauft werden."
-)
-
-max_weight_pct = st.sidebar.number_input(
-    "Max. Gewicht pro Asset (%)",
-    value=55,
-    step=5,
-    help="Begrenzt die maximale Positionsgröße pro Asset."
-)
-
-vol_penalty = st.sidebar.number_input(
-    "Volatilitätsstrafe",
-    value=0.08,
-    step=0.01,
-    format="%.2f",
-    help="Je höher dieser Wert, desto stärker werden schwankungsreiche Assets bestraft."
-)
-
-cash_interest_pct = st.sidebar.number_input(
-    "Cash-Zins p.a. (%)",
-    value=0.00,
-    step=0.10,
-    format="%.2f",
-    help="Optionaler Zins auf uninvestiertes Cash."
-)
-
-use_regime_filter = st.sidebar.checkbox(
-    "Marktregime-Filter nutzen (SPY > SMA200)",
-    value=False,
-    help="Wenn aktiv, investiert der Bot nur offensiv, wenn SPY über SMA200 liegt."
-)
-
-show_debug = st.sidebar.checkbox(
-    "Debug-Bereich anzeigen",
-    value=False,
-    help="Zeigt Rohdaten und interne Details an."
-)
-
-st.sidebar.subheader("Aggressiv-Modus")
-
-conviction_power = st.sidebar.slider(
-    "Conviction-Stärke",
-    min_value=1.0,
-    max_value=4.0,
-    value=2.0,
-    step=0.1,
-    help="Je höher, desto stärker werden die besten Assets bevorzugt."
-)
-
-soft_cash_mode = st.sidebar.checkbox(
-    "Soft Cash Mode nutzen",
-    value=True,
-    help="Wenn keine klaren Signale da sind, bleibt der Bot nicht komplett in Cash, sondern hält einen kleinen investierten Kern."
-)
-
-target_cash_floor_pct = st.sidebar.slider(
-    "Ziel-Cash-Untergrenze (%)",
-    min_value=0,
-    max_value=20,
-    value=5,
-    step=1,
-    help="Der Bot versucht, im Normalfall mindestens so viel Cash zu halten."
-)
-
-target_cash_ceiling_pct = st.sidebar.slider(
-    "Ziel-Cash-Obergrenze (%)",
-    min_value=5,
-    max_value=30,
-    value=15,
-    step=1,
-    help="Der Bot versucht, im Normalfall nicht deutlich mehr Cash zu halten."
-)
-
-soft_cash_invest_ratio_pct = st.sidebar.slider(
-    "Soft-Cash Investitionsquote (%)",
-    min_value=20,
-    max_value=95,
-    value=85,
-    step=5,
-    help="Wenn Soft Cash Mode aktiv ist und keine starken Signale da sind, bleibt ungefähr dieser Anteil investiert."
-)
-
-st.sidebar.subheader("Visualisierung")
-weight_chart_top_n = st.sidebar.slider(
-    "Anzahl Assets im Gewichts-Chart",
-    min_value=5,
-    max_value=15,
-    value=10,
-    step=1,
-    help="Zeigt im Gewichtungsverlauf nur die größten durchschnittlichen Positionen. Der Rest wird zu 'Sonstige' zusammengefasst."
-)
-
-st.sidebar.subheader("Asset-Korb")
-assets_input = st.sidebar.text_area(
-    "Ticker (ein pro Zeile)",
-    value="AAPL\nSAP.DE\nSIE.DE\nALV.DE\nMUV2.DE\nJNJ\nPG",
-    height=180,
-    help="Der Bot wählt aus diesem Korb selbst die stärksten Assets."
-)
-
-input_tickers = [x.strip() for x in assets_input.splitlines() if x.strip()]
-max_assets = max(1, len(input_tickers))
-
-top_n = st.sidebar.slider(
-    "Top-N Assets halten",
-    min_value=1,
-    max_value=max_assets,
-    value=min(4, max_assets),
-    help="Wie viele der stärksten Assets gleichzeitig gehalten werden."
-)
-
-# =========================
-# Erklärungen
-# =========================
-with st.expander("ℹ️ Was macht dieser Bot?"):
-    st.markdown("""
-Dieser Bot ist ein **aggressiver dynamischer Portfolio-Manager**.
-
-Er:
-1. lädt Kursdaten für deinen Asset-Korb,
-2. berechnet einen **Score** je Asset aus:
-   - 6-Monats-Momentum
-   - 3-Monats-Momentum
-   - Volatilitätsstrafe
-3. prüft zusätzlich den **Trendfilter** (`Kurs > SMA200`),
-4. wählt die **Top-N stärksten Assets**,
-5. gewichtet sie **nicht gleichmäßig**, sondern **aggressiv proportional zum Score**,
-6. hält Cash nur begrenzt und versucht meist in einem Bereich von ca. **5–15% Cashquote** zu bleiben,
-7. kann optional im **Soft Cash Mode** auch in schwächeren Phasen teilweise investiert bleiben.
-
-Der Vergleich mit **Buy & Hold** ist fair, weil beide Strategien dieselben Cashflows haben:
-- gleiches Startkapital
-- gleiche monatliche Sparrate
-""")
-
-with st.expander("🧠 Wie interpretiere ich die Kennzahlen?"):
-    st.markdown("""
-**Bot Endwert**  
-Endwert des aktiven Portfolios.
-
-**Buy & Hold Endwert**  
-Endwert eines passiven Vergleichsportfolios mit denselben Assets.
-
-**Outperformance**  
-Differenz der Gesamtrendite in Prozentpunkten. Positiv = Bot schlägt Buy & Hold.
-
-**Exposure**  
-Wie viel Prozent des Portfolios im Durchschnitt investiert waren.
-
-**Ø Cash-Quote**  
-Durchschnittlicher Cash-Anteil.
-
-**CAGR**  
-Jährliche durchschnittliche Wachstumsrate.
-
-**Max Drawdown**  
-Größter historischer Rückgang vom Hochpunkt.
-
-**Volatilität**  
-Schwankungsintensität des Portfolios.
-
-**Sharpe Ratio**  
-Rendite im Verhältnis zur Schwankung. Höher ist meist besser.
-""")
-
-with st.expander("⚙️ Empfohlene Start-Setups"):
-    st.markdown("""
-**Quality / Direktaktien-Korb**
-- AAPL
-- SAP.DE
-- SIE.DE
-- ALV.DE
-- MUV2.DE
-- JNJ
-- PG
-
-Empfehlung:
-- Top-N: 4
-- Rebalancing: Monatlich
-- Max Gewicht: 55
-- Conviction-Stärke: 2.0
-- Volatilitätsstrafe: 0.08
-
-**Großer globaler Korb**
-- ETFs, Tech, Europa, Dividenden gemischt
-
-Empfehlung:
-- Top-N: 5 bis 6
-- Rebalancing: Monatlich
-- Max Gewicht: 55
-- Conviction-Stärke: 2.0 bis 2.5
-
-**Europa / Deutschland**
-- SAP.DE
-- SIE.DE
-- AIR.DE
-- ALV.DE
-- MUV2.DE
-- BMW.DE
-- RWE.DE
-- DTE.DE
-
-Empfehlung:
-- Top-N: 5
-- Rebalancing: Monatlich oder Quartalsweise
-- Cashbereich: 8 bis 18
-""")
+for k, v in defaults.items():
+    if k not in st.session_state:
+        st.session_state[k] = v
 
 # =========================
 # Helper
@@ -443,6 +218,343 @@ def simplify_weight_chart(weights_with_cash: pd.DataFrame, top_k: int):
 
     return out
 
+
+def make_export_csv(df: pd.DataFrame) -> bytes:
+    return df.to_csv(index=False).encode("utf-8")
+
+
+# =========================
+# Sidebar
+# =========================
+st.sidebar.header("Einstellungen")
+
+initial_capital = st.sidebar.number_input(
+    "Startkapital (€)",
+    min_value=0,
+    step=1000,
+    key="initial_capital",
+    help="Einmalige Anfangsinvestition."
+)
+
+monthly_savings = st.sidebar.number_input(
+    "Monatliche Sparrate (€)",
+    min_value=0,
+    step=50,
+    key="monthly_savings",
+    help="Zusätzlicher Betrag, der bei Monatswechsel investierbar wird."
+)
+
+period = st.sidebar.selectbox(
+    "Zeitraum",
+    ["1y", "2y", "3y", "5y"],
+    key="period",
+    help="Für Momentum-Strategien sind 3 bis 5 Jahre meist am sinnvollsten."
+)
+
+rebalance_freq = st.sidebar.selectbox(
+    "Rebalancing",
+    ["Monatlich", "Quartalsweise"],
+    key="rebalance_freq",
+    help="Wie oft das Portfolio neu bewertet und angepasst wird."
+)
+
+fee_pct_input = st.sidebar.number_input(
+    "Transaktionskosten pro Trade (%)",
+    min_value=0.0,
+    step=0.01,
+    format="%.2f",
+    key="fee_pct_input",
+    help="Gebühren und Slippage pro Umschichtung."
+)
+fee_pct = fee_pct_input / 100.0
+
+min_score = st.sidebar.number_input(
+    "Mindest-Score für Kauf",
+    step=0.01,
+    format="%.2f",
+    key="min_score",
+    help="Nur Assets mit Score über diesem Wert dürfen gekauft werden."
+)
+
+max_weight_pct = st.sidebar.number_input(
+    "Max. Gewicht pro Asset (%)",
+    min_value=1,
+    max_value=100,
+    step=5,
+    key="max_weight_pct",
+    help="Begrenzt die maximale Positionsgröße pro Asset."
+)
+
+vol_penalty = st.sidebar.number_input(
+    "Volatilitätsstrafe",
+    min_value=0.0,
+    step=0.01,
+    format="%.2f",
+    key="vol_penalty",
+    help="Je höher dieser Wert, desto stärker werden schwankungsreiche Assets bestraft."
+)
+
+cash_interest_pct = st.sidebar.number_input(
+    "Cash-Zins p.a. (%)",
+    min_value=0.0,
+    step=0.10,
+    format="%.2f",
+    key="cash_interest_pct",
+    help="Optionaler Zins auf uninvestiertes Cash."
+)
+
+use_regime_filter = st.sidebar.checkbox(
+    "Marktregime-Filter nutzen (SPY > SMA200)",
+    key="use_regime_filter",
+    help="Wenn aktiv, investiert der Bot nur offensiv, wenn SPY über SMA200 liegt."
+)
+
+show_debug = st.sidebar.checkbox(
+    "Debug-Bereich anzeigen",
+    key="show_debug",
+    help="Zeigt Rohdaten und interne Details an."
+)
+
+st.sidebar.subheader("Aggressiv-Modus")
+
+conviction_power = st.sidebar.slider(
+    "Conviction-Stärke",
+    min_value=1.0,
+    max_value=4.0,
+    step=0.1,
+    key="conviction_power",
+    help="Je höher, desto stärker werden die besten Assets bevorzugt."
+)
+
+soft_cash_mode = st.sidebar.checkbox(
+    "Soft Cash Mode nutzen",
+    key="soft_cash_mode",
+    help="Wenn keine klaren Signale da sind, bleibt der Bot nicht komplett in Cash."
+)
+
+target_cash_floor_pct = st.sidebar.slider(
+    "Ziel-Cash-Untergrenze (%)",
+    min_value=0,
+    max_value=20,
+    step=1,
+    key="target_cash_floor_pct",
+    help="Der Bot versucht, im Normalfall mindestens so viel Cash zu halten."
+)
+
+target_cash_ceiling_pct = st.sidebar.slider(
+    "Ziel-Cash-Obergrenze (%)",
+    min_value=5,
+    max_value=30,
+    step=1,
+    key="target_cash_ceiling_pct",
+    help="Der Bot versucht, im Normalfall nicht deutlich mehr Cash zu halten."
+)
+
+soft_cash_invest_ratio_pct = st.sidebar.slider(
+    "Soft-Cash Investitionsquote (%)",
+    min_value=20,
+    max_value=95,
+    step=5,
+    key="soft_cash_invest_ratio_pct",
+    help="Wenn Soft Cash Mode aktiv ist und keine starken Signale da sind, bleibt ungefähr dieser Anteil investiert."
+)
+
+st.sidebar.subheader("Visualisierung")
+weight_chart_top_n = st.sidebar.slider(
+    "Anzahl Assets im Gewichts-Chart",
+    min_value=5,
+    max_value=15,
+    step=1,
+    key="weight_chart_top_n",
+    help="Zeigt im Gewichtungsverlauf nur die größten durchschnittlichen Positionen. Der Rest wird zu 'Sonstige' zusammengefasst."
+)
+
+st.sidebar.subheader("⚡ Empfohlene Setups")
+col_a, col_b = st.sidebar.columns(2)
+
+if col_a.button("Quality"):
+    st.session_state["assets_input"] = "AAPL\nSAP.DE\nSIE.DE\nALV.DE\nMUV2.DE\nJNJ\nPG"
+    st.session_state["top_n"] = 4
+    st.session_state["conviction_power"] = 2.0
+    st.session_state["max_weight_pct"] = 55
+    st.session_state["vol_penalty"] = 0.08
+    st.session_state["rebalance_freq"] = "Monatlich"
+    st.session_state["min_score"] = 0.00
+    st.session_state["soft_cash_mode"] = True
+    st.session_state["target_cash_floor_pct"] = 5
+    st.session_state["target_cash_ceiling_pct"] = 15
+    st.session_state["soft_cash_invest_ratio_pct"] = 85
+    st.rerun()
+
+if col_b.button("Global"):
+    st.session_state["assets_input"] = (
+        "SPY\nQQQ\nVOO\nVUG\nNVDA\nMSFT\nAAPL\nGOOGL\nAMZN\nMETA\nTSLA\nAMD\nAVGO\n"
+        "SAP.DE\nSIE.DE\nAIR.DE\nALV.DE\nBMW.DE\nBAS.DE\nDBK.DE\nV\nMA\nJPM\nJNJ\nPG\n"
+        "KO\nPEP\nMCD\nASML\nADBE"
+    )
+    st.session_state["top_n"] = 5
+    st.session_state["conviction_power"] = 2.5
+    st.session_state["max_weight_pct"] = 55
+    st.session_state["vol_penalty"] = 0.08
+    st.session_state["rebalance_freq"] = "Monatlich"
+    st.session_state["min_score"] = 0.00
+    st.session_state["soft_cash_mode"] = True
+    st.session_state["target_cash_floor_pct"] = 5
+    st.session_state["target_cash_ceiling_pct"] = 15
+    st.session_state["soft_cash_invest_ratio_pct"] = 85
+    st.rerun()
+
+col_c, col_d = st.sidebar.columns(2)
+
+if col_c.button("Europa"):
+    st.session_state["assets_input"] = (
+        "SAP.DE\nSIE.DE\nAIR.DE\nALV.DE\nMUV2.DE\nBMW.DE\nBAS.DE\nDBK.DE\nRWE.DE\n"
+        "DTE.DE\nIFX.DE\nADS.DE\nDPW.DE\nVOW3.DE\nCON.DE\nHEI.DE"
+    )
+    st.session_state["top_n"] = 5
+    st.session_state["conviction_power"] = 2.2
+    st.session_state["max_weight_pct"] = 50
+    st.session_state["vol_penalty"] = 0.08
+    st.session_state["rebalance_freq"] = "Monatlich"
+    st.session_state["min_score"] = 0.00
+    st.session_state["soft_cash_mode"] = True
+    st.session_state["target_cash_floor_pct"] = 8
+    st.session_state["target_cash_ceiling_pct"] = 18
+    st.session_state["soft_cash_invest_ratio_pct"] = 85
+    st.rerun()
+
+if col_d.button("Dividend"):
+    st.session_state["assets_input"] = (
+        "JNJ\nPG\nKO\nPEP\nMCD\nMMM\nIBM\nVZ\nT\nMO\nPM\nABBV\nLLY\nMRK\nPFE\nUNH\n"
+        "V\nMA\nJPM\nBAC\nGS\nMS\nC\nAXP\nSPY\nQQQ\nSAP.DE\nSIE.DE\nALV.DE\nMUV2.DE"
+    )
+    st.session_state["top_n"] = 6
+    st.session_state["conviction_power"] = 2.0
+    st.session_state["max_weight_pct"] = 50
+    st.session_state["vol_penalty"] = 0.08
+    st.session_state["rebalance_freq"] = "Monatlich"
+    st.session_state["min_score"] = 0.00
+    st.session_state["soft_cash_mode"] = True
+    st.session_state["target_cash_floor_pct"] = 7
+    st.session_state["target_cash_ceiling_pct"] = 15
+    st.session_state["soft_cash_invest_ratio_pct"] = 85
+    st.rerun()
+
+st.sidebar.subheader("Asset-Korb")
+assets_input = st.sidebar.text_area(
+    "Ticker (ein pro Zeile)",
+    height=180,
+    key="assets_input",
+    help="Der Bot wählt aus diesem Korb selbst die stärksten Assets."
+)
+
+input_tickers = [x.strip() for x in assets_input.splitlines() if x.strip()]
+max_assets = max(1, len(input_tickers))
+
+top_n = st.sidebar.slider(
+    "Top-N Assets halten",
+    min_value=1,
+    max_value=max_assets,
+    key="top_n",
+    help="Wie viele der stärksten Assets gleichzeitig gehalten werden."
+)
+
+# =========================
+# Erklärungen
+# =========================
+with st.expander("ℹ️ Was macht dieser Bot?"):
+    st.markdown("""
+Dieser Bot ist ein **aggressiver dynamischer Portfolio-Manager**.
+
+Er:
+1. lädt Kursdaten für deinen Asset-Korb,
+2. berechnet einen **Score** je Asset aus:
+   - 6-Monats-Momentum
+   - 3-Monats-Momentum
+   - Volatilitätsstrafe
+3. prüft zusätzlich den **Trendfilter** (`Kurs > SMA200`),
+4. wählt die **Top-N stärksten Assets**,
+5. gewichtet sie **nicht gleichmäßig**, sondern **aggressiv proportional zum Score**,
+6. hält Cash nur begrenzt und versucht meist in einem Bereich von ca. **5–15% Cashquote** zu bleiben,
+7. kann optional im **Soft Cash Mode** auch in schwächeren Phasen teilweise investiert bleiben.
+
+Der Vergleich mit **Buy & Hold** ist fair, weil beide Strategien dieselben Cashflows haben:
+- gleiches Startkapital
+- gleiche monatliche Sparrate
+""")
+
+with st.expander("🧠 Wie interpretiere ich die Kennzahlen?"):
+    st.markdown("""
+**Bot Endwert**  
+Endwert des aktiven Portfolios.
+
+**Buy & Hold Endwert**  
+Endwert eines passiven Vergleichsportfolios mit denselben Assets.
+
+**Outperformance**  
+Differenz der Gesamtrendite in Prozentpunkten. Positiv = Bot schlägt Buy & Hold.
+
+**Exposure**  
+Wie viel Prozent des Portfolios im Durchschnitt investiert waren.
+
+**Ø Cash-Quote**  
+Durchschnittlicher Cash-Anteil.
+
+**CAGR**  
+Jährliche durchschnittliche Wachstumsrate.
+
+**Max Drawdown**  
+Größter historischer Rückgang vom Hochpunkt.
+
+**Volatilität**  
+Schwankungsintensität des Portfolios.
+
+**Sharpe Ratio**  
+Rendite im Verhältnis zur Schwankung. Höher ist meist besser.
+""")
+
+with st.expander("⚙️ Empfohlene Start-Setups"):
+    st.markdown("""
+**Quality / Direktaktien-Korb**
+- AAPL
+- SAP.DE
+- SIE.DE
+- ALV.DE
+- MUV2.DE
+- JNJ
+- PG
+
+Empfehlung:
+- Top-N: 4
+- Rebalancing: Monatlich
+- Max Gewicht: 55
+- Conviction-Stärke: 2.0
+- Volatilitätsstrafe: 0.08
+
+**Großer globaler Korb**
+- ETFs, Tech, Europa, Dividenden gemischt
+
+Empfehlung:
+- Top-N: 5 bis 6
+- Rebalancing: Monatlich
+- Max Gewicht: 55
+- Conviction-Stärke: 2.0 bis 2.5
+
+**Europa / Deutschland**
+- SAP.DE
+- SIE.DE
+- AIR.DE
+- ALV.DE
+- MUV2.DE
+- BMW.DE
+- RWE.DE
+- DTE.DE
+
+Empfehlung:
+- Top-N: 5
+- Rebalancing: Monatlich oder Quartalsweise
+- Cashbereich: 8 bis 18
+""")
 
 # =========================
 # Main
@@ -758,6 +870,7 @@ if st.sidebar.button("Portfolio berechnen", type="primary"):
 
         st.success(f"Endkapital dynamischer Bot: {equity_bot.iloc[-1]:,.2f} €")
 
+        # Equity Chart
         fig, ax = plt.subplots(figsize=(12, 6))
         ax.plot(equity_bot.index, equity_bot, label="Dynamischer Bot", linewidth=2.5, color="lime")
         ax.plot(equity_bh.index, equity_bh, label="Buy & Hold", linewidth=2, color="gray")
@@ -765,6 +878,45 @@ if st.sidebar.button("Portfolio berechnen", type="primary"):
         ax.legend()
         ax.grid(True)
         st.pyplot(fig)
+
+        # Export
+        st.subheader("📥 Export")
+
+        export_equity_df = pd.DataFrame({
+            "Datum": equity_bot.index,
+            "Bot Portfolio": equity_bot.values,
+            "Buy & Hold": equity_bh.values,
+            "Cash (€)": cash_bot.values,
+            "Investiert (€)": invested_bot.values
+        })
+
+        equity_csv = make_export_csv(export_equity_df)
+        rebal_csv = make_export_csv(rebalance_df) if not rebalance_df.empty else b""
+        weights_csv = make_export_csv(weights_with_cash.reset_index().rename(columns={"index": "Datum"}))
+
+        col_exp1, col_exp2, col_exp3 = st.columns(3)
+
+        col_exp1.download_button(
+            label="⬇️ Equity Curve CSV",
+            data=equity_csv,
+            file_name="allocato_equity_curve.csv",
+            mime="text/csv"
+        )
+
+        col_exp2.download_button(
+            label="⬇️ Rebalancing Log CSV",
+            data=rebal_csv,
+            file_name="allocato_rebalancing_log.csv",
+            mime="text/csv",
+            disabled=rebalance_df.empty
+        )
+
+        col_exp3.download_button(
+            label="⬇️ Gewichte CSV",
+            data=weights_csv,
+            file_name="allocato_weight_history.csv",
+            mime="text/csv"
+        )
 
         with st.expander("📌 Interpretation dieses Ergebnisses"):
             st.markdown(f"""
@@ -790,16 +942,32 @@ if st.sidebar.button("Portfolio berechnen", type="primary"):
         st.dataframe(weights_df.round(2), use_container_width=True)
 
         st.subheader("Gewichtungsverlauf im Portfolio (%)")
+        chart_cols = list(weights_chart_df.columns)
+        base_colors = list(plt.cm.tab20.colors)
+        colors = []
+
+        normal_idx = 0
+        for col in chart_cols:
+            if col == "Cash":
+                colors.append((0.55, 0.55, 0.55))
+            elif col == "Sonstige":
+                colors.append((0.82, 0.82, 0.82))
+            else:
+                colors.append(base_colors[normal_idx % len(base_colors)])
+                normal_idx += 1
+
         fig2, ax2 = plt.subplots(figsize=(12, 6))
         ax2.stackplot(
             weights_chart_df.index,
-            *[weights_chart_df[col] for col in weights_chart_df.columns],
-            labels=weights_chart_df.columns
+            *[weights_chart_df[col] for col in chart_cols],
+            labels=chart_cols,
+            colors=colors
         )
         ax2.set_title("Portfolio-Gewichte über die Zeit")
         ax2.set_ylabel("Gewicht in %")
+        ax2.set_ylim(0, 100)
         ax2.legend(loc="upper left", bbox_to_anchor=(1.01, 1))
-        ax2.grid(True)
+        ax2.grid(True, alpha=0.3)
         st.pyplot(fig2)
 
         with st.expander("🎯 Zuletzt ausgewählte Top-Assets"):
