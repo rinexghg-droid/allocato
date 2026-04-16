@@ -63,6 +63,9 @@ if "last_loaded_basket" not in st.session_state:
 if "new_basket_name" not in st.session_state:
     st.session_state.new_basket_name = ""
 
+if "rename_basket_name" not in st.session_state:
+    st.session_state.rename_basket_name = ""
+
 # =========================
 # Presets
 # =========================
@@ -209,12 +212,7 @@ ASSET_CATALOG_DF = pd.DataFrame(ASSET_CATALOG).drop_duplicates(subset=["ticker"]
 # =========================
 TRANSLATIONS = {
     "DE": {
-        "page_badges": [
-            "Dynamic Allocation",
-            "Direct Equity Ownership",
-            "Buy & Hold Benchmark",
-            "Launch Version 5.2.0",
-        ],
+        "page_badges": ["Dynamic Allocation", "Direct Equity Ownership", "Buy & Hold Benchmark", "Launch Version 5.2.0"],
         "hero_sub": (
             "Dein smarter Portfolio-Manager für Direktaktien. "
             "Nicht blind kaufen. Nicht unnötig Gebühren zahlen. "
@@ -251,6 +249,9 @@ TRANSLATIONS = {
         "subscription_header": "🔑 Mein Abonnement",
         "subscription_label": "Aktuelles Abo",
         "free_warning": "**Free-Version aktiv**\n\n1 Korb • max. 3 Jahre • keine Asset-Suche",
+        "basic_active": "📘 Basic aktiv",
+        "pro_active": "🚀 Pro aktiv",
+        "lifetime_active": "💎 Lifetime aktiv",
         "upgrade_basic": "Jetzt upgraden → Basic (19 €/Monat)",
         "upgrade_pro": "Upgrade → Pro (39 €/Monat)",
         "upgrade_lifetime": "Lifetime sichern (249 €)",
@@ -483,12 +484,7 @@ TRANSLATIONS = {
         "footer_free": "🆓 Free-Version • Upgrade für unbegrenzte Körbe, 5 Jahre Historie und Asset-Suche",
     },
     "EN": {
-        "page_badges": [
-            "Dynamic Allocation",
-            "Direct Equity Ownership",
-            "Buy & Hold Benchmark",
-            "Launch Version 5.2.0",
-        ],
+        "page_badges": ["Dynamic Allocation", "Direct Equity Ownership", "Buy & Hold Benchmark", "Launch Version 5.2.0"],
         "hero_sub": (
             "Your smart portfolio manager for direct equities. "
             "Do not buy blindly. Do not pay unnecessary fees. "
@@ -525,6 +521,9 @@ TRANSLATIONS = {
         "subscription_header": "🔑 My subscription",
         "subscription_label": "Current plan",
         "free_warning": "**Free plan active**\n\n1 basket • max. 3 years • no asset search",
+        "basic_active": "📘 Basic active",
+        "pro_active": "🚀 Pro active",
+        "lifetime_active": "💎 Lifetime active",
         "upgrade_basic": "Upgrade now → Basic (€19/month)",
         "upgrade_pro": "Upgrade → Pro (€39/month)",
         "upgrade_lifetime": "Get Lifetime (€249)",
@@ -759,13 +758,11 @@ TRANSLATIONS = {
 }
 
 # =========================
-# Helpers for language / presets / basket / subscription
+# Helpers
 # =========================
 def get_basket_limit() -> int:
     tier = st.session_state.get("subscription_tier", "Free")
-    if tier == "Free":
-        return 1
-    return 999
+    return 1 if tier == "Free" else 999
 
 def queue_preset(name: str):
     st.session_state["_pending_preset"] = name
@@ -777,11 +774,11 @@ def apply_pending_preset():
             st.session_state[key] = value
         st.session_state["_pending_preset"] = None
 
-def get_basket_list() -> list:
+def get_basket_list() -> list[str]:
     raw = st.session_state.get("assets_input", "")
     return [x.strip() for x in raw.splitlines() if x.strip()]
 
-def set_basket_list(tickers: list):
+def set_basket_list(tickers: list[str]):
     cleaned = []
     seen = set()
     for t in tickers:
@@ -797,7 +794,7 @@ def add_ticker_to_basket(ticker: str):
         basket.append(ticker)
         set_basket_list(basket)
 
-def add_multiple_tickers_to_basket(tickers: list):
+def add_multiple_tickers_to_basket(tickers: list[str]):
     basket = get_basket_list()
     existing = set(basket)
     for t in tickers:
@@ -836,7 +833,6 @@ def sync_active_basket_from_state():
     if active not in st.session_state.baskets:
         st.session_state.active_basket = list(st.session_state.baskets.keys())[0]
         active = st.session_state.active_basket
-
     if st.session_state.last_loaded_basket != active:
         st.session_state.assets_input = st.session_state.baskets.get(active, "")
         st.session_state.last_loaded_basket = active
@@ -845,6 +841,148 @@ def save_active_basket_to_state():
     active = st.session_state.active_basket
     st.session_state.baskets[active] = st.session_state.get("assets_input", "")
 
+def load_close_prices(tickers, period):
+    series_map = {}
+    skipped = []
+    for t in tickers:
+        try:
+            raw = yf.download(t, period=period, progress=False, auto_adjust=False)
+        except Exception:
+            raw = pd.DataFrame()
+        if raw.empty:
+            skipped.append(t)
+            continue
+        if isinstance(raw.columns, pd.MultiIndex):
+            raw.columns = raw.columns.get_level_values(0)
+        if "Close" not in raw.columns:
+            skipped.append(t)
+            continue
+        s = pd.to_numeric(raw["Close"], errors="coerce").dropna().copy()
+        if s.empty:
+            skipped.append(t)
+            continue
+        s.name = t
+        series_map[t] = s
+    return series_map, skipped
+
+def align_price_series(series_map):
+    if not series_map:
+        return pd.DataFrame()
+    return pd.concat(series_map.values(), axis=1, join="inner").dropna()
+
+def load_single_close(ticker, period):
+    try:
+        raw = yf.download(ticker, period=period, progress=False, auto_adjust=False)
+    except Exception:
+        return pd.Series(dtype=float)
+    if raw.empty:
+        return pd.Series(dtype=float)
+    if isinstance(raw.columns, pd.MultiIndex):
+        raw.columns = raw.columns.get_level_values(0)
+    if "Close" not in raw.columns:
+        return pd.Series(dtype=float)
+    s = pd.to_numeric(raw["Close"], errors="coerce").dropna().copy()
+    s.name = ticker
+    return s
+
+def compute_metrics(equity: pd.Series):
+    returns = equity.pct_change().fillna(0)
+    total_return = (equity.iloc[-1] / equity.iloc[0] - 1) * 100
+    days = len(equity)
+    years = days / 252 if days > 0 else 0
+    if years > 0 and equity.iloc[0] > 0:
+        cagr = ((equity.iloc[-1] / equity.iloc[0]) ** (1 / years) - 1) * 100
+    else:
+        cagr = 0.0
+    rolling_max = equity.cummax()
+    drawdown = (equity / rolling_max - 1) * 100
+    max_dd = drawdown.min()
+    vol = returns.std() * np.sqrt(252) * 100
+    sharpe = 0.0
+    if returns.std() > 0:
+        sharpe = (returns.mean() / returns.std()) * np.sqrt(252)
+    return {
+        "total_return": float(total_return),
+        "cagr": float(cagr),
+        "max_dd": float(max_dd),
+        "volatility": float(vol),
+        "sharpe": float(sharpe),
+    }
+
+def is_rebalance_day(current_date, prev_date, mode):
+    if mode in ("Monatlich", "Monthly"):
+        return current_date.month != prev_date.month
+    if mode in ("Quartalsweise", "Quarterly"):
+        prev_q = (prev_date.month - 1) // 3
+        curr_q = (current_date.month - 1) // 3
+        return (current_date.year != prev_date.year) or (curr_q != prev_q)
+    return False
+
+def conviction_weights(score_series: pd.Series, max_weight: float, power: float) -> pd.Series:
+    s = score_series.copy().astype(float)
+    s = s[s > 0].copy()
+    if s.empty:
+        return s
+    s = s ** power
+    s = s / s.sum()
+    final = pd.Series(0.0, index=s.index)
+    remaining = 1.0
+    active = s.copy()
+    while len(active) > 0 and remaining > 1e-12:
+        active = active / active.sum()
+        proposed = active * remaining
+        capped_mask = proposed >= max_weight - 1e-12
+        if not capped_mask.any():
+            final.loc[active.index] += proposed
+            remaining = 0.0
+            break
+        capped_assets = proposed[capped_mask].index.tolist()
+        for asset in capped_assets:
+            addable = max_weight - final.loc[asset]
+            if addable > 0:
+                final.loc[asset] += addable
+                remaining -= addable
+        active = active.drop(index=capped_assets, errors="ignore")
+        if remaining <= 1e-12:
+            break
+    if final.sum() > 0:
+        final = final / final.sum()
+    return final
+
+def build_soft_cash_selection(score_today, trend_ok, top_n, min_score, invest_ratio, max_weight, power):
+    eligible = score_today[(trend_ok) & (score_today > min_score)].sort_values(ascending=False)
+    selected = eligible.head(top_n)
+    if len(selected) > 0:
+        weights = conviction_weights(selected, max_weight=max_weight, power=power)
+        return selected, weights, 1.0
+    fallback = score_today[trend_ok].sort_values(ascending=False).head(top_n)
+    fallback = fallback[fallback > -999]
+    if len(fallback) == 0:
+        return pd.Series(dtype=float), pd.Series(dtype=float), 0.0
+    shifted = fallback - fallback.min() + 1e-6
+    weights = conviction_weights(shifted, max_weight=max_weight, power=max(1.0, power - 0.5))
+    return fallback, weights, invest_ratio
+
+def simplify_weight_chart(weights_with_cash: pd.DataFrame, top_k: int, other_label: str):
+    cols_no_cash = [c for c in weights_with_cash.columns if c != "Cash"]
+    avg_weights = weights_with_cash[cols_no_cash].mean().sort_values(ascending=False)
+    keep = avg_weights.head(top_k).index.tolist()
+    other = [c for c in cols_no_cash if c not in keep]
+    out = pd.DataFrame(index=weights_with_cash.index)
+    for c in keep:
+        out[c] = weights_with_cash[c]
+    if other:
+        out[other_label] = weights_with_cash[other].sum(axis=1)
+    if "Cash" in weights_with_cash.columns:
+        out["Cash"] = weights_with_cash["Cash"]
+    return out
+
+def make_export_csv(df: pd.DataFrame) -> bytes:
+    return df.to_csv(index=False).encode("utf-8")
+
+# =========================
+# Apply preset / language
+# =========================
 apply_pending_preset()
 lang = st.session_state.get("language", "DE")
 T = TRANSLATIONS[lang]
@@ -940,150 +1078,6 @@ st.markdown(
 )
 
 # =========================
-# Strategy Helpers
-# =========================
-def load_close_prices(tickers, period):
-    series_map = {}
-    skipped = []
-    for t in tickers:
-        try:
-            raw = yf.download(t, period=period, progress=False, auto_adjust=False)
-        except Exception:
-            raw = pd.DataFrame()
-        if raw.empty:
-            skipped.append(t)
-            continue
-        if isinstance(raw.columns, pd.MultiIndex):
-            raw.columns = raw.columns.get_level_values(0)
-        if "Close" not in raw.columns:
-            skipped.append(t)
-            continue
-        s = pd.to_numeric(raw["Close"], errors="coerce").dropna().copy()
-        if s.empty:
-            skipped.append(t)
-            continue
-        s.name = t
-        series_map[t] = s
-    return series_map, skipped
-
-def align_price_series(series_map):
-    if not series_map:
-        return pd.DataFrame()
-    return pd.concat(series_map.values(), axis=1, join="inner").dropna()
-
-def load_single_close(ticker, period):
-    try:
-        raw = yf.download(ticker, period=period, progress=False, auto_adjust=False)
-    except Exception:
-        return pd.Series(dtype=float)
-    if raw.empty:
-        return pd.Series(dtype=float)
-    if isinstance(raw.columns, pd.MultiIndex):
-        raw.columns = raw.columns.get_level_values(0)
-    if "Close" not in raw.columns:
-        return pd.Series(dtype=float)
-    s = pd.to_numeric(raw["Close"], errors="coerce").dropna().copy()
-    s.name = ticker
-    return s
-
-def compute_metrics(equity: pd.Series):
-    returns = equity.pct_change().fillna(0)
-    total_return = (equity.iloc[-1] / equity.iloc[0] - 1) * 100
-    days = len(equity)
-    years = days / 252 if days > 0 else 0
-    if years > 0 and equity.iloc[0] > 0:
-        cagr = ((equity.iloc[-1] / equity.iloc[0]) ** (1 / years) - 1) * 100
-    else:
-        cagr = 0.0
-    rolling_max = equity.cummax()
-    drawdown = (equity / rolling_max - 1) * 100
-    max_dd = drawdown.min()
-    vol = returns.std() * np.sqrt(252) * 100
-    sharpe = 0.0
-    if returns.std() > 0:
-        sharpe = (returns.mean() / returns.std()) * np.sqrt(252)
-    return {
-        "total_return": float(total_return),
-        "cagr": float(cagr),
-        "max_dd": float(max_dd),
-        "volatility": float(vol),
-        "sharpe": float(sharpe),
-    }
-
-def is_rebalance_day(current_date, prev_date, mode):
-    if mode == "Monatlich" or mode == "Monthly":
-        return current_date.month != prev_date.month
-    if mode == "Quartalsweise" or mode == "Quarterly":
-        prev_q = (prev_date.month - 1) // 3
-        curr_q = (current_date.month - 1) // 3
-        return (current_date.year != prev_date.year) or (curr_q != prev_q)
-    return False
-
-def conviction_weights(score_series: pd.Series, max_weight: float, power: float) -> pd.Series:
-    s = score_series.copy().astype(float)
-    s = s[s > 0].copy()
-    if s.empty:
-        return s
-    s = s ** power
-    s = s / s.sum()
-    final = pd.Series(0.0, index=s.index)
-    remaining = 1.0
-    active = s.copy()
-    while len(active) > 0 and remaining > 1e-12:
-        active = active / active.sum()
-        proposed = active * remaining
-        capped_mask = proposed >= max_weight - 1e-12
-        if not capped_mask.any():
-            final.loc[active.index] += proposed
-            remaining = 0.0
-            break
-        capped_assets = proposed[capped_mask].index.tolist()
-        for asset in capped_assets:
-            addable = max_weight - final.loc[asset]
-            if addable > 0:
-                final.loc[asset] += addable
-                remaining -= addable
-        active = active.drop(index=capped_assets, errors="ignore")
-        if remaining <= 1e-12:
-            break
-    if final.sum() > 0:
-        final = final / final.sum()
-    return final
-
-def build_soft_cash_selection(score_today, trend_ok, top_n, min_score, invest_ratio, max_weight, power):
-    eligible = score_today[(trend_ok) & (score_today > min_score)].sort_values(ascending=False)
-    selected = eligible.head(top_n)
-    if len(selected) > 0:
-        weights = conviction_weights(selected, max_weight=max_weight, power=power)
-        return selected, weights, 1.0
-
-    fallback = score_today[trend_ok].sort_values(ascending=False).head(top_n)
-    fallback = fallback[fallback > -999]
-    if len(fallback) == 0:
-        return pd.Series(dtype=float), pd.Series(dtype=float), 0.0
-
-    shifted = fallback - fallback.min() + 1e-6
-    weights = conviction_weights(shifted, max_weight=max_weight, power=max(1.0, power - 0.5))
-    return fallback, weights, invest_ratio
-
-def simplify_weight_chart(weights_with_cash: pd.DataFrame, top_k: int, other_label: str):
-    cols_no_cash = [c for c in weights_with_cash.columns if c != "Cash"]
-    avg_weights = weights_with_cash[cols_no_cash].mean().sort_values(ascending=False)
-    keep = avg_weights.head(top_k).index.tolist()
-    other = [c for c in cols_no_cash if c not in keep]
-    out = pd.DataFrame(index=weights_with_cash.index)
-    for c in keep:
-        out[c] = weights_with_cash[c]
-    if other:
-        out[other_label] = weights_with_cash[other].sum(axis=1)
-    if "Cash" in weights_with_cash.columns:
-        out["Cash"] = weights_with_cash["Cash"]
-    return out
-
-def make_export_csv(df: pd.DataFrame) -> bytes:
-    return df.to_csv(index=False).encode("utf-8")
-
-# =========================
 # Sidebar
 # =========================
 st.sidebar.selectbox(
@@ -1107,25 +1101,24 @@ selected_tier = st.sidebar.radio(
     key="subscription_tier",
     horizontal=False,
 )
-
 tier = selected_tier
 
 if tier == "Free":
     st.sidebar.warning(T["free_warning"])
     st.sidebar.link_button(T["upgrade_basic"], STRIPE_BASIC, use_container_width=True)
 elif tier == "Basic":
-    st.sidebar.info("📘 Basic aktiv")
+    st.sidebar.info(T["basic_active"])
     st.sidebar.link_button(T["upgrade_pro"], STRIPE_PRO, use_container_width=True)
 elif tier == "Pro":
-    st.sidebar.success("🚀 Pro aktiv")
+    st.sidebar.success(T["pro_active"])
     st.sidebar.link_button(T["upgrade_lifetime"], STRIPE_LIFETIME, use_container_width=True)
 else:
-    st.sidebar.success("💎 Lifetime aktiv")
+    st.sidebar.success(T["lifetime_active"])
 
 st.sidebar.header(T["basket_header"])
 basket_names = list(st.session_state.baskets.keys())
 
-selected_basket = st.sidebar.selectbox(
+st.sidebar.selectbox(
     T["basket_select"],
     options=basket_names,
     key="active_basket",
@@ -1133,7 +1126,7 @@ selected_basket = st.sidebar.selectbox(
 
 sync_active_basket_from_state()
 
-new_basket_name = st.sidebar.text_input(T["basket_new_name"], key="new_basket_name")
+st.sidebar.text_input(T["basket_new_name"], key="new_basket_name")
 
 if st.sidebar.button(T["basket_add"], use_container_width=True):
     name = st.session_state.new_basket_name.strip()
@@ -1167,6 +1160,7 @@ if st.sidebar.button(T["basket_rename"], use_container_width=True):
         st.session_state.baskets[new_name] = st.session_state.baskets.pop(old_name)
         st.session_state.active_basket = new_name
         st.session_state.last_loaded_basket = new_name
+        st.session_state.rename_basket_name = ""
         st.sidebar.success(T["basket_renamed"].format(name=new_name))
         st.rerun()
 
@@ -1465,9 +1459,7 @@ with st.expander(T["preset_expander"]):
 # =========================
 # Main
 # =========================
-if st.sidebar.button
-    T["calculate"], type="primary"
-):
+if st.sidebar.button(T["calculate"], type="primary"):
     save_active_basket_to_state()
 
     with st.spinner(T["spinner"]):
@@ -1599,7 +1591,6 @@ if st.sidebar.button
                                 investable_capital = total_equity_before * invest_ratio
                                 for tkr in fallback_weights.index:
                                     target_values[tkr] = investable_capital * fallback_weights[tkr]
-
                                 target_weights_log[date] = {
                                     tkr: (target_values[tkr] / total_equity_before) for tkr in fallback_weights.index
                                 }
@@ -1625,7 +1616,6 @@ if st.sidebar.button
                             investable_capital = total_equity_before * invest_ratio
                             for tkr in fallback_weights.index:
                                 target_values[tkr] = investable_capital * fallback_weights[tkr]
-
                             target_weights_log[date] = {
                                 tkr: (target_values[tkr] / total_equity_before) for tkr in fallback_weights.index
                             }
@@ -1827,7 +1817,6 @@ if st.sidebar.button
                 use_container_width=True,
             )
 
-        # Interpretation
         with st.expander(T["interpret_expander"]):
             st.markdown(
                 T["interpret_text"].format(
@@ -1842,7 +1831,6 @@ if st.sidebar.button
                 )
             )
 
-        # Current weights
         st.subheader(T["current_weights"])
         active_weights_df = weights_df[weights_df[T["weights_current_col"]] > 0].copy()
         if not active_weights_df.empty:
@@ -1853,7 +1841,6 @@ if st.sidebar.button
         with st.expander(T["show_all_assets"]):
             st.dataframe(weights_df.round(2), use_container_width=True)
 
-        # Weight chart
         st.subheader(T["weights_chart_title"])
         st.caption(T["weights_chart_caption"])
 
@@ -1886,7 +1873,6 @@ if st.sidebar.button
         ax2.grid(True, alpha=0.25)
         st.pyplot(fig2)
 
-        # Latest selection
         with st.expander(T["latest_selection"]):
             if selected_assets_log:
                 last_selection_date = max(selected_assets_log.keys())
