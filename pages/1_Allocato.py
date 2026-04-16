@@ -1,3 +1,11 @@
+import json
+import hmac
+import hashlib
+import re
+import sqlite3
+from datetime import datetime
+from pathlib import Path
+
 import streamlit as st
 import yfinance as yf
 import pandas as pd
@@ -13,24 +21,186 @@ STRIPE_BASIC = "https://buy.stripe.com/fZu9AN2mIeJu3oRbNcfjG02"
 STRIPE_PRO = "https://buy.stripe.com/3cIaERf9udFq2kN04ufjG01"
 STRIPE_LIFETIME = "https://buy.stripe.com/8x2dR37H21WI4sV3gGfjG00"
 
-if "subscription_tier" not in st.session_state:
-    st.session_state.subscription_tier = "Free"
-
 # =========================
-# Hard Limits
+# User / Auth System
 # =========================
-def get_max_baskets() -> int:
-    return 1 if st.session_state.get("subscription_tier", "Free") == "Free" else 999
+APP_ROOT = Path(__file__).resolve().parent.parent if "__file__" in globals() else Path.cwd()
+DB_PATH = APP_ROOT / "allocato_users.db"
+USER_STATE_VERSION = 1
+TIERS = ["Free", "Basic", "Pro", "Lifetime"]
+TIER_ICONS = {"Free": "🆓", "Basic": "📘", "Pro": "🚀", "Lifetime": "💎"}
 
-def get_max_period() -> str:
-    return "3y" if st.session_state.get("subscription_tier", "Free") == "Free" else "5y"
+# Für Testing kannst du hier Admin-E-Mails hinterlegen.
+ADMIN_EMAILS = {
+    "admin@allocato.local",
+}
+ALLOW_ADMIN_TIER_OVERRIDE = True
 
-def can_use_asset_search() -> bool:
-    return st.session_state.get("subscription_tier", "Free") in ["Basic", "Pro", "Lifetime"]
+def ensure_auth_session_state():
+    auth_defaults = {
+        "subscription_tier": "Free",
+        "auth_logged_in": False,
+        "auth_user_email": "",
+        "auth_loaded_for": "",
+        "auth_is_admin": False,
+    }
+    for key, value in auth_defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
 
-def can_export_full() -> bool:
-    return st.session_state.get("subscription_tier", "Free") != "Free"
+def normalize_email(email: str) -> str:
+    return email.strip().lower()
 
+def is_valid_email(email: str) -> bool:
+    pattern = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
+    return re.match(pattern, normalize_email(email)) is not None
+
+def hash_password(password: str, salt_hex: str | None = None) -> str:
+    salt = bytes.fromhex(salt_hex) if salt_hex else hashlib.sha256(str(datetime.utcnow().timestamp()).encode("utf-8")).digest()
+    derived = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 120000)
+    return f"{salt.hex()}${derived.hex()}"
+
+def verify_password(password: str, stored_value: str) -> bool:
+    try:
+        salt_hex, stored_hash = stored_value.split("$", 1)
+        candidate = hash_password(password, salt_hex).split("$", 1)[1]
+        return hmac.compare_digest(candidate, stored_hash)
+    except Exception:
+        return False
+
+def get_db_connection():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def init_user_db():
+    with get_db_connection() as conn:
+        conn.execute(
+            '''
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL,
+                subscription_tier TEXT NOT NULL DEFAULT 'Free',
+                state_json TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            '''
+        )
+        conn.commit()
+
+def get_user_row(email: str):
+    normalized = normalize_email(email)
+    with get_db_connection() as conn:
+        row = conn.execute(
+            "SELECT email, password_hash, subscription_tier, state_json, created_at, updated_at FROM users WHERE email = ?",
+            (normalized,),
+        ).fetchone()
+    return row
+
+def create_user(email: str, password: str) -> tuple[bool, str]:
+    normalized = normalize_email(email)
+    if not is_valid_email(normalized):
+        return False, "Bitte eine gültige E-Mail-Adresse eingeben."
+    if len(password) < 8:
+        return False, "Das Passwort muss mindestens 8 Zeichen lang sein."
+    if get_user_row(normalized):
+        return False, "Diese E-Mail ist bereits registriert."
+    now = datetime.utcnow().isoformat()
+    initial_state = json.dumps({}, ensure_ascii=False)
+    with get_db_connection() as conn:
+        conn.execute(
+            '''
+            INSERT INTO users (email, password_hash, subscription_tier, state_json, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ''',
+            (normalized, hash_password(password), "Free", initial_state, now, now),
+        )
+        conn.commit()
+    return True, "Registrierung erfolgreich. Du kannst dich jetzt einloggen."
+
+def update_user_tier(email: str, new_tier: str):
+    normalized = normalize_email(email)
+    if new_tier not in TIERS:
+        return
+    now = datetime.utcnow().isoformat()
+    with get_db_connection() as conn:
+        conn.execute(
+            "UPDATE users SET subscription_tier = ?, updated_at = ? WHERE email = ?",
+            (new_tier, now, normalized),
+        )
+        conn.commit()
+
+def login_user(email: str, password: str) -> tuple[bool, str]:
+    normalized = normalize_email(email)
+    row = get_user_row(normalized)
+    if row is None:
+        return False, "Kein Konto mit dieser E-Mail gefunden."
+    if not verify_password(password, row["password_hash"]):
+        return False, "Falsches Passwort."
+    st.session_state["auth_logged_in"] = True
+    st.session_state["auth_user_email"] = normalized
+    st.session_state["auth_is_admin"] = normalized in ADMIN_EMAILS
+    st.session_state["subscription_tier"] = row["subscription_tier"]
+    st.session_state["auth_loaded_for"] = ""
+    return True, "Erfolgreich eingeloggt."
+
+def logout_user():
+    save_logged_in_user_state()
+    st.session_state["auth_logged_in"] = False
+    st.session_state["auth_user_email"] = ""
+    st.session_state["auth_loaded_for"] = ""
+    st.session_state["auth_is_admin"] = False
+    st.session_state["subscription_tier"] = "Free"
+
+def get_auth_texts(lang: str) -> dict:
+    if lang == "EN":
+        return {
+            "account_header": "👤 Account",
+            "guest_info": "You are using Allocato as a guest. To save baskets and your plan permanently, please register or log in.",
+            "login_tab": "Login",
+            "register_tab": "Register",
+            "email": "Email",
+            "password": "Password",
+            "password_repeat": "Repeat password",
+            "login_button": "Log in",
+            "register_button": "Create account",
+            "logout_button": "Log out",
+            "logged_in_as": "Logged in as",
+            "current_plan": "Current plan",
+            "plan_note": "Your plan is loaded from your account.",
+            "admin_plan": "Admin plan control",
+            "save_plan": "Save plan",
+            "plan_saved": "Plan saved.",
+            "register_pw_mismatch": "Passwords do not match.",
+            "auth_required_export": "Please log in and upgrade to use these exports permanently.",
+            "stripe_note": "The Stripe checkout links are included. Automatic plan upgrade after payment still requires a Stripe webhook or a server endpoint.",
+        }
+    return {
+        "account_header": "👤 Konto",
+        "guest_info": "Du nutzt Allocato aktuell als Gast. Für dauerhaft gespeicherte Körbe und Abo-Stufen bitte registrieren oder einloggen.",
+        "login_tab": "Login",
+        "register_tab": "Registrieren",
+        "email": "E-Mail",
+        "password": "Passwort",
+        "password_repeat": "Passwort wiederholen",
+        "login_button": "Einloggen",
+        "register_button": "Konto erstellen",
+        "logout_button": "Ausloggen",
+        "logged_in_as": "Eingeloggt als",
+        "current_plan": "Aktueller Plan",
+        "plan_note": "Dein Plan wird aus deinem Nutzerkonto geladen.",
+        "admin_plan": "Admin-Plansteuerung",
+        "save_plan": "Plan speichern",
+        "plan_saved": "Plan gespeichert.",
+        "register_pw_mismatch": "Die Passwörter stimmen nicht überein.",
+        "auth_required_export": "Bitte logge dich ein und upgrade deinen Account, um diese Exporte dauerhaft zu nutzen.",
+        "stripe_note": "Die Stripe-Checkout-Links sind eingebaut. Für eine automatische Planfreischaltung nach Zahlung brauchst du zusätzlich noch einen Stripe-Webhook oder Server-Endpunkt.",
+    }
+
+ensure_auth_session_state()
+init_user_db()
 # =========================
 # Defaults / Session State
 # =========================
@@ -38,7 +208,7 @@ defaults = {
     "language": "DE",
     "initial_capital": 10000,
     "monthly_savings": 500,
-    "period": get_max_period(),
+    "period": "5y",
     "rebalance_freq": "Monatlich",
     "fee_pct_input": 0.10,
     "min_score": 0.00,
@@ -81,17 +251,104 @@ if "new_basket_name" not in st.session_state:
 if "rename_basket_name" not in st.session_state:
     st.session_state.rename_basket_name = ""
 
-# Enforce strict Free limits in session state
-if st.session_state.get("subscription_tier", "Free") == "Free":
-    if len(st.session_state.baskets) > 1:
-        first_name = list(st.session_state.baskets.keys())[0]
-        st.session_state.baskets = {first_name: st.session_state.baskets[first_name]}
-        st.session_state.active_basket = first_name
-        st.session_state.last_loaded_basket = first_name
-    if st.session_state.get("period") not in ["1y", "2y", "3y"]:
-        st.session_state["period"] = "3y"
-    if int(st.session_state.get("top_n", 4)) > 4:
-        st.session_state["top_n"] = 4
+
+PERSISTENT_STATE_KEYS = [
+    "language",
+    "initial_capital",
+    "monthly_savings",
+    "period",
+    "rebalance_freq",
+    "fee_pct_input",
+    "min_score",
+    "max_weight_pct",
+    "vol_penalty",
+    "cash_interest_pct",
+    "use_regime_filter",
+    "show_debug",
+    "conviction_power",
+    "soft_cash_mode",
+    "target_cash_floor_pct",
+    "target_cash_ceiling_pct",
+    "soft_cash_invest_ratio_pct",
+    "weight_chart_top_n",
+    "top_n",
+    "assets_input",
+    "asset_search_query",
+    "asset_search_select",
+    "_pending_preset",
+    "baskets",
+    "active_basket",
+    "last_loaded_basket",
+]
+
+def build_user_state_payload() -> dict:
+    payload = {"version": USER_STATE_VERSION}
+    for key in PERSISTENT_STATE_KEYS:
+        payload[key] = st.session_state.get(key)
+    return payload
+
+def apply_user_state_payload(payload: dict):
+    if not isinstance(payload, dict):
+        return
+    for key in PERSISTENT_STATE_KEYS:
+        if key in payload and payload[key] is not None:
+            st.session_state[key] = payload[key]
+
+def load_logged_in_user_state():
+    if not st.session_state.get("auth_logged_in") or not st.session_state.get("auth_user_email"):
+        return
+    email = st.session_state["auth_user_email"]
+    if st.session_state.get("auth_loaded_for") == email:
+        return
+    row = get_user_row(email)
+    if row is None:
+        logout_user()
+        return
+    st.session_state["subscription_tier"] = row["subscription_tier"]
+    st.session_state["auth_is_admin"] = email in ADMIN_EMAILS
+    payload = {}
+    if row["state_json"]:
+        try:
+            payload = json.loads(row["state_json"])
+        except Exception:
+            payload = {}
+    apply_user_state_payload(payload)
+    st.session_state["auth_loaded_for"] = email
+
+def save_logged_in_user_state():
+    if not st.session_state.get("auth_logged_in") or not st.session_state.get("auth_user_email"):
+        return
+    email = normalize_email(st.session_state["auth_user_email"])
+    payload_json = json.dumps(build_user_state_payload(), ensure_ascii=False)
+    now = datetime.utcnow().isoformat()
+    with get_db_connection() as conn:
+        conn.execute(
+            "UPDATE users SET subscription_tier = ?, state_json = ?, updated_at = ? WHERE email = ?",
+            (
+                st.session_state.get("subscription_tier", "Free"),
+                payload_json,
+                now,
+                email,
+            ),
+        )
+        conn.commit()
+
+def enforce_plan_limits():
+    tier_now = st.session_state.get("subscription_tier", "Free")
+    if tier_now == "Free":
+        if len(st.session_state.baskets) > 1:
+            first_name = list(st.session_state.baskets.keys())[0]
+            st.session_state.baskets = {first_name: st.session_state.baskets[first_name]}
+            st.session_state.active_basket = first_name
+            st.session_state.last_loaded_basket = first_name
+            st.session_state.assets_input = st.session_state.baskets[first_name]
+        if st.session_state.get("period") not in ["1y", "2y", "3y"]:
+            st.session_state["period"] = "3y"
+        if int(st.session_state.get("top_n", 4)) > 4:
+            st.session_state["top_n"] = 4
+
+load_logged_in_user_state()
+enforce_plan_limits()
 
 # =========================
 # Presets
@@ -1115,19 +1372,52 @@ st.sidebar.selectbox(
 lang = st.session_state.get("language", "DE")
 T = TRANSLATIONS[lang]
 
+AUTH_T = get_auth_texts(lang)
+
+st.sidebar.header(AUTH_T["account_header"])
+
+if st.session_state.get("auth_logged_in"):
+    st.sidebar.success(f'{AUTH_T["logged_in_as"]}: {st.session_state["auth_user_email"]}')
+    st.sidebar.caption(AUTH_T["plan_note"])
+    if st.sidebar.button(AUTH_T["logout_button"], use_container_width=True):
+        logout_user()
+        st.rerun()
+else:
+    st.sidebar.info(AUTH_T["guest_info"])
+    login_tab, register_tab = st.sidebar.tabs([AUTH_T["login_tab"], AUTH_T["register_tab"]])
+
+    with login_tab:
+        with st.form("login_form", clear_on_submit=False):
+            login_email = st.text_input(AUTH_T["email"], key="login_email")
+            login_password = st.text_input(AUTH_T["password"], type="password", key="login_password")
+            login_submit = st.form_submit_button(AUTH_T["login_button"], use_container_width=True)
+        if login_submit:
+            ok, message = login_user(login_email, login_password)
+            if ok:
+                st.sidebar.success(message)
+                st.rerun()
+            else:
+                st.sidebar.error(message)
+
+    with register_tab:
+        with st.form("register_form", clear_on_submit=False):
+            reg_email = st.text_input(AUTH_T["email"], key="register_email")
+            reg_password = st.text_input(AUTH_T["password"], type="password", key="register_password")
+            reg_password_2 = st.text_input(AUTH_T["password_repeat"], type="password", key="register_password_repeat")
+            reg_submit = st.form_submit_button(AUTH_T["register_button"], use_container_width=True)
+        if reg_submit:
+            if reg_password != reg_password_2:
+                st.sidebar.error(AUTH_T["register_pw_mismatch"])
+            else:
+                ok, message = create_user(reg_email, reg_password)
+                if ok:
+                    st.sidebar.success(message)
+                else:
+                    st.sidebar.error(message)
+
 st.sidebar.header(T["subscription_header"])
-
-tier_options = ["Free", "Basic", "Pro", "Lifetime"]
-tier_icons = {"Free": "🆓", "Basic": "📘", "Pro": "🚀", "Lifetime": "💎"}
-
-selected_tier = st.sidebar.radio(
-    T["subscription_label"],
-    options=tier_options,
-    format_func=lambda x: f"{tier_icons[x]} {x}",
-    key="subscription_tier",
-    horizontal=False,
-)
-tier = selected_tier
+tier = st.session_state.get("subscription_tier", "Free")
+st.sidebar.markdown(f'**{AUTH_T["current_plan"]}:** {TIER_ICONS.get(tier, "🔑")} {tier}')
 
 if tier == "Free":
     st.sidebar.warning(T["free_warning"])
@@ -1141,15 +1431,26 @@ elif tier == "Pro":
 else:
     st.sidebar.success(T["lifetime_active"])
 
+st.sidebar.caption(AUTH_T["stripe_note"])
+
+if st.session_state.get("auth_logged_in") and st.session_state.get("auth_is_admin") and ALLOW_ADMIN_TIER_OVERRIDE:
+    st.sidebar.subheader(AUTH_T["admin_plan"])
+    admin_selected_tier = st.sidebar.selectbox(
+        AUTH_T["current_plan"],
+        options=TIERS,
+        index=TIERS.index(tier) if tier in TIERS else 0,
+        key="admin_selected_tier",
+    )
+    if st.sidebar.button(AUTH_T["save_plan"], use_container_width=True):
+        update_user_tier(st.session_state["auth_user_email"], admin_selected_tier)
+        st.session_state["subscription_tier"] = admin_selected_tier
+        enforce_plan_limits()
+        save_logged_in_user_state()
+        st.sidebar.success(AUTH_T["plan_saved"])
+        st.rerun()
+
 st.sidebar.header(T["basket_header"])
 basket_names = list(st.session_state.baskets.keys())
-
-if tier == "Free" and len(basket_names) > 1:
-    first = basket_names[0]
-    st.session_state.baskets = {first: st.session_state.baskets[first]}
-    st.session_state.active_basket = first
-    st.session_state.last_loaded_basket = first
-    basket_names = [first]
 
 st.sidebar.selectbox(
     T["basket_select"],
@@ -1177,6 +1478,7 @@ if tier != "Free":
             st.session_state.assets_input = defaults["assets_input"]
             st.session_state.last_loaded_basket = name
             st.session_state.new_basket_name = ""
+            save_logged_in_user_state()
             st.sidebar.success(T["basket_created"].format(name=name))
             st.rerun()
 
@@ -1195,6 +1497,7 @@ if tier != "Free":
             st.session_state.active_basket = new_name
             st.session_state.last_loaded_basket = new_name
             st.session_state.rename_basket_name = ""
+            save_logged_in_user_state()
             st.sidebar.success(T["basket_renamed"].format(name=new_name))
             st.rerun()
 
@@ -1208,6 +1511,7 @@ if tier != "Free":
             st.session_state.active_basket = new_active
             st.session_state.assets_input = st.session_state.baskets[new_active]
             st.session_state.last_loaded_basket = new_active
+            save_logged_in_user_state()
             st.sidebar.success(T["basket_deleted"].format(name=current))
             st.rerun()
 else:
@@ -1372,6 +1676,8 @@ col_d.button(T["preset_dividend"], on_click=queue_preset, args=("Dividend",))
 
 apply_pending_preset()
 save_active_basket_to_state()
+enforce_plan_limits()
+save_logged_in_user_state()
 
 # =========================
 # Asset Search / Basket Builder
@@ -1404,6 +1710,7 @@ if can_use_asset_search():
             ticker_to_add = option_map[selected_display]
             add_ticker_to_basket(ticker_to_add)
             save_active_basket_to_state()
+            save_logged_in_user_state()
             st.sidebar.success(T["added_asset_msg"].format(ticker=ticker_to_add))
             st.rerun()
 
@@ -1411,6 +1718,7 @@ if can_use_asset_search():
             tickers_to_add = filtered_assets["ticker"].tolist()
             add_multiple_tickers_to_basket(tickers_to_add)
             save_active_basket_to_state()
+            save_logged_in_user_state()
             st.sidebar.success(T["added_all_assets_msg"].format(count=len(tickers_to_add)))
             st.rerun()
 
@@ -1430,6 +1738,7 @@ if basket_list_for_remove:
     if st.sidebar.button(T["remove_asset_button"]):
         remove_ticker_from_basket(remove_choice)
         save_active_basket_to_state()
+        save_logged_in_user_state()
         st.sidebar.success(T["removed_asset_msg"].format(ticker=remove_choice))
         st.rerun()
 else:
@@ -1443,6 +1752,7 @@ assets_input = st.sidebar.text_area(
     help=T["tickers_input_help"],
 )
 save_active_basket_to_state()
+save_logged_in_user_state()
 
 input_tickers = [x.strip() for x in assets_input.splitlines() if x.strip()]
 asset_count = len(input_tickers)
@@ -1830,7 +2140,10 @@ if st.sidebar.button(T["calculate"], type="primary"):
             use_container_width=True,
         )
 
-        if can_export_full():
+        if tier == "Free":
+            col_exp2.caption(T["export_locked"])
+            col_exp3.caption(T["export_locked"])
+        else:
             col_exp2.download_button(
                 label=T["export_rebal"],
                 data=rebal_csv,
@@ -1846,9 +2159,6 @@ if st.sidebar.button(T["calculate"], type="primary"):
                 mime="text/csv",
                 use_container_width=True,
             )
-        else:
-            col_exp2.caption(T["export_locked"])
-            col_exp3.caption(T["export_locked"])
 
         with st.expander(T["interpret_expander"]):
             st.markdown(
@@ -1954,6 +2264,8 @@ if st.sidebar.button(T["calculate"], type="primary"):
                 st.dataframe(prices.tail(), use_container_width=True)
                 st.write(T["debug_last_scores"])
                 st.dataframe(raw_score.tail(), use_container_width=True)
+
+        save_logged_in_user_state()
 
         if tier == "Free":
             st.caption(T["footer_free"])
