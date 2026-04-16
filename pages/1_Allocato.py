@@ -298,6 +298,13 @@ if "new_basket_name" not in st.session_state:
 if "rename_basket_name" not in st.session_state:
     st.session_state.rename_basket_name = ""
 
+# FIX: sicherer Wechsel des aktiven Korbs
+if "_new_active_basket" in st.session_state:
+    st.session_state.active_basket = st.session_state["_new_active_basket"]
+    st.session_state.last_loaded_basket = st.session_state["_new_active_basket"]
+    del st.session_state["_new_active_basket"]
+
+
 
 PERSISTENT_STATE_KEYS = [
     "language",
@@ -1525,7 +1532,7 @@ if tier != "Free":
         else:
             save_active_basket_to_state()
             st.session_state.baskets[name] = defaults["assets_input"]
-            st.session_state.active_basket = name
+            st.session_state["_new_active_basket"] = name
             st.session_state.assets_input = defaults["assets_input"]
             st.session_state.last_loaded_basket = name
             st.session_state.new_basket_name = ""
