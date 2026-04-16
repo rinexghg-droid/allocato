@@ -82,7 +82,7 @@ st.markdown(
         <span class="hero-badge">Dynamic Allocation</span>
         <span class="hero-badge">Direct Equity Ownership</span>
         <span class="hero-badge">Buy & Hold Benchmark</span>
-        <span class="hero-badge">Launch Version 5.0.2</span>
+        <span class="hero-badge">Launch Version 5.0.3</span>
     </div>
     """,
     unsafe_allow_html=True
@@ -136,9 +136,93 @@ defaults = {
     "assets_input": "AAPL\nSAP.DE\nSIE.DE\nALV.DE\nMUV2.DE\nJNJ\nPG",
 }
 
+PRESETS = {
+    "Quality": {
+        "assets_input": "AAPL\nSAP.DE\nSIE.DE\nALV.DE\nMUV2.DE\nJNJ\nPG",
+        "top_n": 4,
+        "conviction_power": 2.0,
+        "max_weight_pct": 55,
+        "vol_penalty": 0.08,
+        "rebalance_freq": "Monatlich",
+        "min_score": 0.00,
+        "soft_cash_mode": True,
+        "target_cash_floor_pct": 5,
+        "target_cash_ceiling_pct": 15,
+        "soft_cash_invest_ratio_pct": 85,
+    },
+    "Global": {
+        "assets_input": (
+            "SPY\nQQQ\nVOO\nVUG\nNVDA\nMSFT\nAAPL\nGOOGL\nAMZN\nMETA\nTSLA\nAMD\nAVGO\n"
+            "SAP.DE\nSIE.DE\nAIR.DE\nALV.DE\nBMW.DE\nBAS.DE\nDBK.DE\nV\nMA\nJPM\nJNJ\nPG\n"
+            "KO\nPEP\nMCD\nASML\nADBE"
+        ),
+        "top_n": 5,
+        "conviction_power": 2.5,
+        "max_weight_pct": 55,
+        "vol_penalty": 0.08,
+        "rebalance_freq": "Monatlich",
+        "min_score": 0.00,
+        "soft_cash_mode": True,
+        "target_cash_floor_pct": 5,
+        "target_cash_ceiling_pct": 15,
+        "soft_cash_invest_ratio_pct": 85,
+    },
+    "Europa": {
+        "assets_input": (
+            "SAP.DE\nSIE.DE\nAIR.DE\nALV.DE\nMUV2.DE\nBMW.DE\nBAS.DE\nDBK.DE\nRWE.DE\n"
+            "DTE.DE\nIFX.DE\nADS.DE\nDPW.DE\nVOW3.DE\nCON.DE\nHEI.DE"
+        ),
+        "top_n": 5,
+        "conviction_power": 2.2,
+        "max_weight_pct": 50,
+        "vol_penalty": 0.08,
+        "rebalance_freq": "Monatlich",
+        "min_score": 0.00,
+        "soft_cash_mode": True,
+        "target_cash_floor_pct": 8,
+        "target_cash_ceiling_pct": 18,
+        "soft_cash_invest_ratio_pct": 85,
+    },
+    "Dividend": {
+        "assets_input": (
+            "JNJ\nPG\nKO\nPEP\nMCD\nMMM\nIBM\nVZ\nT\nMO\nPM\nABBV\nLLY\nMRK\nPFE\nUNH\n"
+            "V\nMA\nJPM\nBAC\nGS\nMS\nC\nAXP\nSPY\nQQQ\nSAP.DE\nSIE.DE\nALV.DE\nMUV2.DE"
+        ),
+        "top_n": 6,
+        "conviction_power": 2.0,
+        "max_weight_pct": 50,
+        "vol_penalty": 0.08,
+        "rebalance_freq": "Monatlich",
+        "min_score": 0.00,
+        "soft_cash_mode": True,
+        "target_cash_floor_pct": 7,
+        "target_cash_ceiling_pct": 15,
+        "soft_cash_invest_ratio_pct": 85,
+    },
+}
+
 for k, v in defaults.items():
     if k not in st.session_state:
         st.session_state[k] = v
+
+if "_pending_preset" not in st.session_state:
+    st.session_state["_pending_preset"] = None
+
+
+def queue_preset(name: str):
+    st.session_state["_pending_preset"] = name
+
+
+def apply_pending_preset():
+    preset_name = st.session_state.get("_pending_preset")
+    if preset_name and preset_name in PRESETS:
+        for key, value in PRESETS[preset_name].items():
+            st.session_state[key] = value
+        st.session_state["_pending_preset"] = None
+
+
+# Wichtig: Preset anwenden, bevor Widgets gebaut werden
+apply_pending_preset()
 
 # =========================
 # Helper
@@ -475,74 +559,12 @@ weight_chart_top_n = st.sidebar.slider(
 
 st.sidebar.subheader("⚡ Empfohlene Setups")
 col_a, col_b = st.sidebar.columns(2)
-
-if col_a.button("Quality"):
-    st.session_state["assets_input"] = "AAPL\nSAP.DE\nSIE.DE\nALV.DE\nMUV2.DE\nJNJ\nPG"
-    st.session_state["top_n"] = 4
-    st.session_state["conviction_power"] = 2.0
-    st.session_state["max_weight_pct"] = 55
-    st.session_state["vol_penalty"] = 0.08
-    st.session_state["rebalance_freq"] = "Monatlich"
-    st.session_state["min_score"] = 0.00
-    st.session_state["soft_cash_mode"] = True
-    st.session_state["target_cash_floor_pct"] = 5
-    st.session_state["target_cash_ceiling_pct"] = 15
-    st.session_state["soft_cash_invest_ratio_pct"] = 85
-    st.rerun()
-
-if col_b.button("Global"):
-    st.session_state["assets_input"] = (
-        "SPY\nQQQ\nVOO\nVUG\nNVDA\nMSFT\nAAPL\nGOOGL\nAMZN\nMETA\nTSLA\nAMD\nAVGO\n"
-        "SAP.DE\nSIE.DE\nAIR.DE\nALV.DE\nBMW.DE\nBAS.DE\nDBK.DE\nV\nMA\nJPM\nJNJ\nPG\n"
-        "KO\nPEP\nMCD\nASML\nADBE"
-    )
-    st.session_state["top_n"] = 5
-    st.session_state["conviction_power"] = 2.5
-    st.session_state["max_weight_pct"] = 55
-    st.session_state["vol_penalty"] = 0.08
-    st.session_state["rebalance_freq"] = "Monatlich"
-    st.session_state["min_score"] = 0.00
-    st.session_state["soft_cash_mode"] = True
-    st.session_state["target_cash_floor_pct"] = 5
-    st.session_state["target_cash_ceiling_pct"] = 15
-    st.session_state["soft_cash_invest_ratio_pct"] = 85
-    st.rerun()
+col_a.button("Quality", on_click=queue_preset, args=("Quality",))
+col_b.button("Global", on_click=queue_preset, args=("Global",))
 
 col_c, col_d = st.sidebar.columns(2)
-
-if col_c.button("Europa"):
-    st.session_state["assets_input"] = (
-        "SAP.DE\nSIE.DE\nAIR.DE\nALV.DE\nMUV2.DE\nBMW.DE\nBAS.DE\nDBK.DE\nRWE.DE\n"
-        "DTE.DE\nIFX.DE\nADS.DE\nDPW.DE\nVOW3.DE\nCON.DE\nHEI.DE"
-    )
-    st.session_state["top_n"] = 5
-    st.session_state["conviction_power"] = 2.2
-    st.session_state["max_weight_pct"] = 50
-    st.session_state["vol_penalty"] = 0.08
-    st.session_state["rebalance_freq"] = "Monatlich"
-    st.session_state["min_score"] = 0.00
-    st.session_state["soft_cash_mode"] = True
-    st.session_state["target_cash_floor_pct"] = 8
-    st.session_state["target_cash_ceiling_pct"] = 18
-    st.session_state["soft_cash_invest_ratio_pct"] = 85
-    st.rerun()
-
-if col_d.button("Dividend"):
-    st.session_state["assets_input"] = (
-        "JNJ\nPG\nKO\nPEP\nMCD\nMMM\nIBM\nVZ\nT\nMO\nPM\nABBV\nLLY\nMRK\nPFE\nUNH\n"
-        "V\nMA\nJPM\nBAC\nGS\nMS\nC\nAXP\nSPY\nQQQ\nSAP.DE\nSIE.DE\nALV.DE\nMUV2.DE"
-    )
-    st.session_state["top_n"] = 6
-    st.session_state["conviction_power"] = 2.0
-    st.session_state["max_weight_pct"] = 50
-    st.session_state["vol_penalty"] = 0.08
-    st.session_state["rebalance_freq"] = "Monatlich"
-    st.session_state["min_score"] = 0.00
-    st.session_state["soft_cash_mode"] = True
-    st.session_state["target_cash_floor_pct"] = 7
-    st.session_state["target_cash_ceiling_pct"] = 15
-    st.session_state["soft_cash_invest_ratio_pct"] = 85
-    st.rerun()
+col_c.button("Europa", on_click=queue_preset, args=("Europa",))
+col_d.button("Dividend", on_click=queue_preset, args=("Dividend",))
 
 st.sidebar.subheader("Asset-Korb")
 assets_input = st.sidebar.text_area(
@@ -982,7 +1004,8 @@ if st.sidebar.button("Portfolio berechnen", type="primary"):
         st.pyplot(fig)
 
         # Export
-        st.subheader("📥 Export")
+        st.markdown("### Export")
+        st.caption("Lade Equity-Verlauf, Rebalancing-Log oder Gewichtshistorie als CSV herunter.")
 
         export_equity_df = pd.DataFrame({
             "Datum": equity_bot.index,
@@ -1041,9 +1064,21 @@ if st.sidebar.button("Portfolio berechnen", type="primary"):
 """)
 
         st.subheader("Aktuelle Portfolio-Gewichte")
-        st.dataframe(weights_df.round(2), use_container_width=True)
 
-        st.subheader("Gewichtungsverlauf im Portfolio (%)")
+        active_weights_df = weights_df[weights_df["Aktuelles Gewicht %"] > 0].copy()
+        inactive_weights_df = weights_df[weights_df["Aktuelles Gewicht %"] <= 0].copy()
+
+        if not active_weights_df.empty:
+            st.dataframe(active_weights_df.round(2), use_container_width=True)
+        else:
+            st.info("Aktuell sind keine aktiven Positionen im Portfolio.")
+
+        with st.expander("Alle Assets inkl. 0%-Gewicht anzeigen"):
+            st.dataframe(weights_df.round(2), use_container_width=True)
+
+        st.subheader("Gewichtungsverlauf im Portfolio")
+        st.caption("Angezeigt werden die größten durchschnittlichen Positionen sowie 'Sonstige' und Cash.")
+
         chart_cols = list(weights_chart_df.columns)
         base_colors = list(plt.cm.tab20.colors)
         colors = []
@@ -1051,9 +1086,9 @@ if st.sidebar.button("Portfolio berechnen", type="primary"):
         normal_idx = 0
         for col in chart_cols:
             if col == "Cash":
-                colors.append((0.55, 0.55, 0.55))
+                colors.append((0.50, 0.50, 0.50))
             elif col == "Sonstige":
-                colors.append((0.82, 0.82, 0.82))
+                colors.append((0.80, 0.80, 0.80))
             else:
                 colors.append(base_colors[normal_idx % len(base_colors)])
                 normal_idx += 1
@@ -1063,13 +1098,14 @@ if st.sidebar.button("Portfolio berechnen", type="primary"):
             weights_chart_df.index,
             *[weights_chart_df[col] for col in chart_cols],
             labels=chart_cols,
-            colors=colors
+            colors=colors,
+            alpha=0.95
         )
         ax2.set_title("Portfolio-Gewichte über die Zeit")
         ax2.set_ylabel("Gewicht in %")
         ax2.set_ylim(0, 100)
         ax2.legend(loc="upper left", bbox_to_anchor=(1.01, 1))
-        ax2.grid(True, alpha=0.3)
+        ax2.grid(True, alpha=0.25)
         st.pyplot(fig2)
 
         with st.expander("🎯 Zuletzt ausgewählte Top-Assets"):
