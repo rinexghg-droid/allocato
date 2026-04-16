@@ -42,7 +42,7 @@ ADMIN_EMAILS = {
 #     "zweite@email.de": "Lifetime",
 # }
 TEST_ACCOUNT_TIER_OVERRIDES = {
-    # "kev_cone@web.de": "Pro",
+    # "deine@email.de": "Pro",
 }
 
 ALLOW_ADMIN_TIER_OVERRIDE = True
