@@ -30,6 +30,8 @@ defaults = {
     "weight_chart_top_n": 8,
     "top_n": 4,
     "assets_input": "AAPL\nSAP.DE\nSIE.DE\nALV.DE\nMUV2.DE\nJNJ\nPG",
+    "asset_search_query": "",
+    "asset_search_select": None,
 }
 
 for k, v in defaults.items():
@@ -58,9 +60,9 @@ PRESETS = {
     },
     "Global": {
         "assets_input": (
-            "SPY\nQQQ\nVOO\nVUG\nNVDA\nMSFT\nAAPL\nGOOGL\nAMZN\nMETA\nTSLA\nAMD\nAVGO\n"
+            "SPY\nQQQ\nVOO\nVUG\nVTI\nVXUS\nNVDA\nMSFT\nAAPL\nGOOGL\nAMZN\nMETA\nTSLA\nAMD\nAVGO\n"
             "SAP.DE\nSIE.DE\nAIR.DE\nALV.DE\nBMW.DE\nBAS.DE\nDBK.DE\nV\nMA\nJPM\nJNJ\nPG\n"
-            "KO\nPEP\nMCD\nASML\nADBE"
+            "KO\nPEP\nMCD\nASML\nADBE\nCRM\nNOW"
         ),
         "top_n": 5,
         "conviction_power": 2.5,
@@ -108,7 +110,83 @@ PRESETS = {
 }
 
 # =========================
-# Translations
+# Local Asset Database
+# =========================
+ASSET_CATALOG = [
+    # US / ETFs / Tech
+    {"ticker": "SPY", "name": "SPDR S&P 500 ETF", "isin": "US78462F1030", "wkn": "A1JULM"},
+    {"ticker": "QQQ", "name": "Invesco QQQ Trust", "isin": "US46090E1038", "wkn": "A0F5UF"},
+    {"ticker": "VOO", "name": "Vanguard S&P 500 ETF", "isin": "US9229083632", "wkn": "A1JX53"},
+    {"ticker": "VUG", "name": "Vanguard Growth ETF", "isin": "US9229087369", "wkn": "A0Q4R2"},
+    {"ticker": "VTI", "name": "Vanguard Total Stock Market ETF", "isin": "US9229087690", "wkn": "A0J206"},
+    {"ticker": "VXUS", "name": "Vanguard Total International Stock ETF", "isin": "US9219097683", "wkn": "A1JX51"},
+    {"ticker": "ARKK", "name": "ARK Innovation ETF", "isin": "US00214Q1040", "wkn": "A14Y8H"},
+    {"ticker": "NVDA", "name": "NVIDIA Corp.", "isin": "US67066G1040", "wkn": "918422"},
+    {"ticker": "MSFT", "name": "Microsoft Corp.", "isin": "US5949181045", "wkn": "870747"},
+    {"ticker": "AAPL", "name": "Apple Inc.", "isin": "US0378331005", "wkn": "865985"},
+    {"ticker": "GOOGL", "name": "Alphabet Inc. Class A", "isin": "US02079K3059", "wkn": "A14Y6F"},
+    {"ticker": "AMZN", "name": "Amazon.com Inc.", "isin": "US0231351067", "wkn": "906866"},
+    {"ticker": "META", "name": "Meta Platforms Inc.", "isin": "US30303M1027", "wkn": "A1JWVX"},
+    {"ticker": "TSLA", "name": "Tesla Inc.", "isin": "US88160R1014", "wkn": "A1CX3T"},
+    {"ticker": "AMD", "name": "Advanced Micro Devices", "isin": "US0079031078", "wkn": "863186"},
+    {"ticker": "AVGO", "name": "Broadcom Inc.", "isin": "US11135F1012", "wkn": "A2JG9Z"},
+    {"ticker": "ASML", "name": "ASML Holding", "isin": "USN070592100", "wkn": "A1J4U4"},
+    {"ticker": "ADBE", "name": "Adobe Inc.", "isin": "US00724F1012", "wkn": "871981"},
+    {"ticker": "CRM", "name": "Salesforce Inc.", "isin": "US79466L3024", "wkn": "A0B87V"},
+    {"ticker": "NOW", "name": "ServiceNow Inc.", "isin": "US81762P1021", "wkn": "A1JX4P"},
+    {"ticker": "PLTR", "name": "Palantir Technologies", "isin": "US69608A1088", "wkn": "A2QA4J"},
+    {"ticker": "ARM", "name": "Arm Holdings ADR", "isin": "US0420682058", "wkn": "A3EUCD"},
+    {"ticker": "SMCI", "name": "Super Micro Computer", "isin": "US86800U1043", "wkn": "A0MKJF"},
+    {"ticker": "COIN", "name": "Coinbase Global", "isin": "US19260Q1076", "wkn": "A2QP7J"},
+    {"ticker": "MSTR", "name": "MicroStrategy Inc.", "isin": "US5949724083", "wkn": "722713"},
+    {"ticker": "HOOD", "name": "Robinhood Markets", "isin": "US7707001027", "wkn": "A3CVQC"},
+    {"ticker": "MRK", "name": "Merck & Co.", "isin": "US58933Y1055", "wkn": "A0YD8Q"},
+    {"ticker": "PFE", "name": "Pfizer Inc.", "isin": "US7170811035", "wkn": "852009"},
+    {"ticker": "LLY", "name": "Eli Lilly", "isin": "US5324571083", "wkn": "858560"},
+    {"ticker": "JNJ", "name": "Johnson & Johnson", "isin": "US4781601046", "wkn": "853260"},
+    {"ticker": "PG", "name": "Procter & Gamble", "isin": "US7427181091", "wkn": "852062"},
+    {"ticker": "KO", "name": "Coca-Cola", "isin": "US1912161007", "wkn": "850663"},
+    {"ticker": "PEP", "name": "PepsiCo", "isin": "US7134481081", "wkn": "851995"},
+    {"ticker": "MCD", "name": "McDonald's", "isin": "US5801351017", "wkn": "856958"},
+    {"ticker": "MMM", "name": "3M Co.", "isin": "US88579Y1010", "wkn": "851745"},
+    {"ticker": "IBM", "name": "IBM", "isin": "US4592001014", "wkn": "851399"},
+    {"ticker": "VZ", "name": "Verizon", "isin": "US92343V1044", "wkn": "868402"},
+    {"ticker": "T", "name": "AT&T", "isin": "US00206R1023", "wkn": "A0HL9Z"},
+    {"ticker": "MO", "name": "Altria Group", "isin": "US02209S1033", "wkn": "200417"},
+    {"ticker": "PM", "name": "Philip Morris", "isin": "US7181721090", "wkn": "A0NDBJ"},
+    {"ticker": "ABBV", "name": "AbbVie", "isin": "US00287Y1091", "wkn": "A1J84E"},
+    {"ticker": "UNH", "name": "UnitedHealth Group", "isin": "US91324P1021", "wkn": "869561"},
+    {"ticker": "V", "name": "Visa Inc.", "isin": "US92826C8394", "wkn": "A0NC7B"},
+    {"ticker": "MA", "name": "Mastercard", "isin": "US57636Q1040", "wkn": "A0F602"},
+    {"ticker": "JPM", "name": "JPMorgan Chase", "isin": "US46625H1005", "wkn": "850628"},
+    {"ticker": "BAC", "name": "Bank of America", "isin": "US0605051046", "wkn": "858388"},
+    {"ticker": "GS", "name": "Goldman Sachs", "isin": "US38141G1040", "wkn": "920332"},
+    {"ticker": "MS", "name": "Morgan Stanley", "isin": "US6174464486", "wkn": "885836"},
+    {"ticker": "C", "name": "Citigroup", "isin": "US1729674242", "wkn": "A1H92V"},
+    {"ticker": "AXP", "name": "American Express", "isin": "US0258161092", "wkn": "850226"},
+    # Germany / Europe
+    {"ticker": "SAP.DE", "name": "SAP SE", "isin": "DE0007164600", "wkn": "716460"},
+    {"ticker": "SIE.DE", "name": "Siemens AG", "isin": "DE0007236101", "wkn": "723610"},
+    {"ticker": "AIR.DE", "name": "Airbus SE", "isin": "NL0000235190", "wkn": "938914"},
+    {"ticker": "ALV.DE", "name": "Allianz SE", "isin": "DE0008404005", "wkn": "840400"},
+    {"ticker": "MUV2.DE", "name": "Munich Re", "isin": "DE0008430026", "wkn": "843002"},
+    {"ticker": "BMW.DE", "name": "BMW AG", "isin": "DE0005190003", "wkn": "519000"},
+    {"ticker": "BAS.DE", "name": "BASF SE", "isin": "DE000BASF111", "wkn": "BASF11"},
+    {"ticker": "DBK.DE", "name": "Deutsche Bank", "isin": "DE0005140008", "wkn": "514000"},
+    {"ticker": "RWE.DE", "name": "RWE AG", "isin": "DE0007037129", "wkn": "703712"},
+    {"ticker": "DTE.DE", "name": "Deutsche Telekom", "isin": "DE0005557508", "wkn": "555750"},
+    {"ticker": "IFX.DE", "name": "Infineon", "isin": "DE0006231004", "wkn": "623100"},
+    {"ticker": "ADS.DE", "name": "Adidas", "isin": "DE000A1EWWW0", "wkn": "A1EWWW"},
+    {"ticker": "DPW.DE", "name": "DHL Group", "isin": "DE0005552004", "wkn": "555200"},
+    {"ticker": "VOW3.DE", "name": "Volkswagen Vz", "isin": "DE0007664039", "wkn": "766403"},
+    {"ticker": "CON.DE", "name": "Continental", "isin": "DE0005439004", "wkn": "543900"},
+    {"ticker": "HEI.DE", "name": "Heidelberg Materials", "isin": "DE0006047004", "wkn": "604700"},
+]
+
+ASSET_CATALOG_DF = pd.DataFrame(ASSET_CATALOG).drop_duplicates(subset=["ticker"]).reset_index(drop=True)
+
+# =========================
+# Translation
 # =========================
 TRANSLATIONS = {
     "DE": {
@@ -116,7 +194,7 @@ TRANSLATIONS = {
             "Dynamic Allocation",
             "Direct Equity Ownership",
             "Buy & Hold Benchmark",
-            "Launch Version 5.1.0",
+            "Launch Version 5.2.0",
         ],
         "hero_sub": (
             "Dein smarter Portfolio-Manager für Direktaktien. "
@@ -158,6 +236,7 @@ TRANSLATIONS = {
         "period": "Zeitraum",
         "period_help": "Für Momentum-Strategien sind 3 bis 5 Jahre meist am sinnvollsten.",
         "rebalance": "Rebalancing",
+        "rebalance_options": ["Monatlich", "Quartalsweise"],
         "fee": "Transaktionskosten pro Trade (%)",
         "fee_help": "Gebühren und Slippage pro Umschichtung.",
         "min_score": "Mindest-Score für Kauf",
@@ -187,6 +266,17 @@ TRANSLATIONS = {
         "weight_chart_top_n": "Anzahl Assets im Gewichts-Chart",
         "weight_chart_top_n_help": "Zeigt im Gewichtungsverlauf nur die größten durchschnittlichen Positionen. Der Rest wird zu 'Sonstige' zusammengefasst.",
         "recommended_setups": "⚡ Empfohlene Setups",
+        "asset_search_section": "🔎 Asset-Suche",
+        "asset_search_query": "Suche nach Ticker, Name, ISIN oder WKN",
+        "asset_search_query_help": "Beispiel: SAP, Apple, DE0007164600 oder 716460",
+        "asset_search_result": "Treffer auswählen",
+        "add_asset_button": "Zum Korb hinzufügen",
+        "add_selected_assets_button": "Alle Treffer hinzufügen",
+        "remove_asset_section": "➖ Asset entfernen",
+        "remove_asset_select": "Ticker zum Entfernen",
+        "remove_asset_button": "Aus Korb entfernen",
+        "search_no_results": "Keine Treffer in der integrierten Datenbank gefunden.",
+        "search_info": "Tipp: Du kannst weiterhin manuell Ticker in den Asset-Korb schreiben. Die Suche deckt die integrierte Asset-Datenbank ab.",
         "asset_basket": "Asset-Korb",
         "tickers_input": "Ticker (ein pro Zeile)",
         "tickers_input_help": "Der Bot wählt aus diesem Korb selbst die stärksten Assets.",
@@ -344,13 +434,18 @@ TRANSLATIONS = {
         "invested_label": "Investiert (€)",
         "bot_portfolio_label": "Bot Portfolio",
         "buy_hold_label": "Buy & Hold",
+        "search_option_format": "{ticker} | {name} | ISIN: {isin} | WKN: {wkn}",
+        "added_asset_msg": "{ticker} wurde zum Asset-Korb hinzugefügt.",
+        "added_all_assets_msg": "{count} Assets wurden zum Asset-Korb hinzugefügt.",
+        "removed_asset_msg": "{ticker} wurde aus dem Asset-Korb entfernt.",
+        "remove_empty_msg": "Es ist kein Asset zum Entfernen vorhanden.",
     },
     "EN": {
         "page_badges": [
             "Dynamic Allocation",
             "Direct Equity Ownership",
             "Buy & Hold Benchmark",
-            "Launch Version 5.1.0",
+            "Launch Version 5.2.0",
         ],
         "hero_sub": (
             "Your smart portfolio manager for direct equities. "
@@ -392,6 +487,7 @@ TRANSLATIONS = {
         "period": "Period",
         "period_help": "For momentum strategies, 3 to 5 years usually makes the most sense.",
         "rebalance": "Rebalancing",
+        "rebalance_options": ["Monthly", "Quarterly"],
         "fee": "Transaction costs per trade (%)",
         "fee_help": "Fees and slippage per rebalance.",
         "min_score": "Minimum score for buying",
@@ -421,6 +517,17 @@ TRANSLATIONS = {
         "weight_chart_top_n": "Number of assets in weight chart",
         "weight_chart_top_n_help": "Shows only the largest average positions in the weight history. The rest is grouped into 'Other'.",
         "recommended_setups": "⚡ Recommended setups",
+        "asset_search_section": "🔎 Asset search",
+        "asset_search_query": "Search by ticker, name, ISIN or WKN",
+        "asset_search_query_help": "Example: SAP, Apple, DE0007164600 or 716460",
+        "asset_search_result": "Select result",
+        "add_asset_button": "Add to basket",
+        "add_selected_assets_button": "Add all results",
+        "remove_asset_section": "➖ Remove asset",
+        "remove_asset_select": "Ticker to remove",
+        "remove_asset_button": "Remove from basket",
+        "search_no_results": "No results found in the integrated asset database.",
+        "search_info": "Tip: You can still type tickers manually into the asset basket. Search currently covers the integrated asset database.",
         "asset_basket": "Asset universe",
         "tickers_input": "Tickers (one per line)",
         "tickers_input_help": "The bot selects the strongest assets from this universe.",
@@ -578,11 +685,16 @@ TRANSLATIONS = {
         "invested_label": "Invested (€)",
         "bot_portfolio_label": "Bot portfolio",
         "buy_hold_label": "Buy & Hold",
+        "search_option_format": "{ticker} | {name} | ISIN: {isin} | WKN: {wkn}",
+        "added_asset_msg": "{ticker} was added to the asset basket.",
+        "added_all_assets_msg": "{count} assets were added to the asset basket.",
+        "removed_asset_msg": "{ticker} was removed from the asset basket.",
+        "remove_empty_msg": "There is no asset available to remove.",
     },
 }
 
 # =========================
-# Helpers for language / presets
+# Helpers for language / presets / basket
 # =========================
 def queue_preset(name: str):
     st.session_state["_pending_preset"] = name
@@ -598,6 +710,62 @@ apply_pending_preset()
 
 lang = st.session_state.get("language", "DE")
 T = TRANSLATIONS[lang]
+
+def get_basket_list() -> list[str]:
+    raw = st.session_state.get("assets_input", "")
+    return [x.strip() for x in raw.splitlines() if x.strip()]
+
+def set_basket_list(tickers: list[str]):
+    cleaned = []
+    seen = set()
+    for t in tickers:
+        t = t.strip()
+        if t and t not in seen:
+            cleaned.append(t)
+            seen.add(t)
+    st.session_state["assets_input"] = "\n".join(cleaned)
+
+def add_ticker_to_basket(ticker: str):
+    basket = get_basket_list()
+    if ticker not in basket:
+        basket.append(ticker)
+        set_basket_list(basket)
+
+def add_multiple_tickers_to_basket(tickers: list[str]):
+    basket = get_basket_list()
+    existing = set(basket)
+    for t in tickers:
+        if t not in existing:
+            basket.append(t)
+            existing.add(t)
+    set_basket_list(basket)
+
+def remove_ticker_from_basket(ticker: str):
+    basket = [t for t in get_basket_list() if t != ticker]
+    set_basket_list(basket)
+
+def filter_asset_catalog(query: str) -> pd.DataFrame:
+    if not query.strip():
+        return ASSET_CATALOG_DF.copy()
+
+    q = query.strip().lower()
+    df = ASSET_CATALOG_DF.copy()
+
+    mask = (
+        df["ticker"].str.lower().str.contains(q, na=False) |
+        df["name"].str.lower().str.contains(q, na=False) |
+        df["isin"].str.lower().str.contains(q, na=False) |
+        df["wkn"].str.lower().str.contains(q, na=False)
+    )
+    return df.loc[mask].copy()
+
+def format_search_option(row: pd.Series) -> str:
+    return T["search_option_format"].format(
+        ticker=row["ticker"],
+        name=row["name"],
+        isin=row["isin"],
+        wkn=row["wkn"],
+    )
 
 # =========================
 # Styling
@@ -691,7 +859,7 @@ st.markdown(
 )
 
 # =========================
-# Helpers
+# Strategy Helpers
 # =========================
 def load_close_prices(tickers, period):
     series_map = {}
@@ -782,9 +950,9 @@ def compute_metrics(equity: pd.Series):
 
 
 def is_rebalance_day(current_date, prev_date, mode):
-    if mode == "Monatlich":
+    if mode == "Monatlich" or mode == "Monthly":
         return current_date.month != prev_date.month
-    if mode == "Quartalsweise":
+    if mode == "Quartalsweise" or mode == "Quarterly":
         prev_q = (prev_date.month - 1) // 3
         curr_q = (current_date.month - 1) // 3
         return (current_date.year != prev_date.year) or (curr_q != prev_q)
@@ -907,6 +1075,7 @@ monthly_savings = st.sidebar.number_input(
     help=T["monthly_savings_help"],
 )
 
+rebalance_options = T["rebalance_options"]
 period = st.sidebar.selectbox(
     T["period"],
     ["1y", "2y", "3y", "5y"],
@@ -914,7 +1083,6 @@ period = st.sidebar.selectbox(
     help=T["period_help"],
 )
 
-rebalance_options = ["Monatlich", "Quartalsweise"]
 rebalance_freq = st.sidebar.selectbox(
     T["rebalance"],
     rebalance_options,
@@ -1040,6 +1208,60 @@ col_b.button(T["preset_global"], on_click=queue_preset, args=("Global",))
 col_c, col_d = st.sidebar.columns(2)
 col_c.button(T["preset_europe"], on_click=queue_preset, args=("Europa",))
 col_d.button(T["preset_dividend"], on_click=queue_preset, args=("Dividend",))
+
+# =========================
+# Asset Search / Basket Builder
+# =========================
+st.sidebar.subheader(T["asset_search_section"])
+
+search_query = st.sidebar.text_input(
+    T["asset_search_query"],
+    key="asset_search_query",
+    help=T["asset_search_query_help"],
+)
+
+filtered_assets = filter_asset_catalog(search_query)
+
+if filtered_assets.empty:
+    st.sidebar.info(T["search_no_results"])
+else:
+    filtered_assets = filtered_assets.copy()
+    filtered_assets["display"] = filtered_assets.apply(format_search_option, axis=1)
+
+    option_map = dict(zip(filtered_assets["display"], filtered_assets["ticker"]))
+    display_options = filtered_assets["display"].tolist()
+
+    selected_display = st.sidebar.selectbox(
+        T["asset_search_result"],
+        options=display_options,
+        key="asset_search_select",
+    )
+
+    if st.sidebar.button(T["add_asset_button"]):
+        ticker_to_add = option_map[selected_display]
+        add_ticker_to_basket(ticker_to_add)
+        st.sidebar.success(T["added_asset_msg"].format(ticker=ticker_to_add))
+
+    if st.sidebar.button(T["add_selected_assets_button"]):
+        tickers_to_add = filtered_assets["ticker"].tolist()
+        add_multiple_tickers_to_basket(tickers_to_add)
+        st.sidebar.success(T["added_all_assets_msg"].format(count=len(tickers_to_add)))
+
+st.sidebar.caption(T["search_info"])
+
+basket_list_for_remove = get_basket_list()
+st.sidebar.subheader(T["remove_asset_section"])
+
+if basket_list_for_remove:
+    remove_choice = st.sidebar.selectbox(
+        T["remove_asset_select"],
+        options=basket_list_for_remove,
+    )
+    if st.sidebar.button(T["remove_asset_button"]):
+        remove_ticker_from_basket(remove_choice)
+        st.sidebar.success(T["removed_asset_msg"].format(ticker=remove_choice))
+else:
+    st.sidebar.caption(T["remove_empty_msg"])
 
 st.sidebar.subheader(T["asset_basket"])
 assets_input = st.sidebar.text_area(
