@@ -7,119 +7,10 @@ import matplotlib.pyplot as plt
 st.set_page_config(page_title="Allocato", layout="wide")
 
 # =========================
-# Branding / Header
-# =========================
-st.markdown(
-    """
-    <style>
-    .hero-box {
-        background: linear-gradient(135deg, #0f172a 0%, #111827 45%, #1f2937 100%);
-        padding: 1.4rem 1.6rem;
-        border-radius: 18px;
-        color: white;
-        margin-bottom: 1rem;
-        border: 1px solid rgba(255,255,255,0.08);
-    }
-    .hero-title {
-        font-size: 2.0rem;
-        font-weight: 800;
-        margin-bottom: 0.2rem;
-        letter-spacing: -0.02em;
-    }
-    .hero-sub {
-        font-size: 1.05rem;
-        opacity: 0.95;
-        margin-bottom: 0.8rem;
-        line-height: 1.45;
-    }
-    .hero-badge {
-        display: inline-block;
-        background: rgba(255,255,255,0.12);
-        padding: 0.35rem 0.7rem;
-        border-radius: 999px;
-        font-size: 0.85rem;
-        margin-right: 0.4rem;
-        margin-bottom: 0.4rem;
-    }
-    .story-box {
-        background: linear-gradient(135deg, rgba(15,23,42,0.92) 0%, rgba(30,41,59,0.92) 100%);
-        border: 1px solid rgba(255,255,255,0.08);
-        padding: 1rem 1.1rem;
-        border-radius: 16px;
-        margin-top: 0.8rem;
-        margin-bottom: 0.8rem;
-        color: rgba(255,255,255,0.95);
-    }
-    .small-note {
-        color: rgba(255,255,255,0.72);
-        font-size: 0.95rem;
-        line-height: 1.45;
-    }
-    .section-label {
-        font-size: 0.9rem;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        opacity: 0.7;
-        margin-bottom: 0.4rem;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-st.markdown(
-    """
-    <div class="hero-box">
-        <div class="hero-title">🚀 Allocato</div>
-        <div class="hero-sub">
-            Dein smarter Portfolio-Manager für Direktaktien.
-            Nicht blind kaufen. Nicht unnötig Gebühren zahlen.
-            Nicht darauf hoffen, dass irgendein Produkt schon irgendwie passt.
-            <br><br>
-            Allocato hilft dir, ein dynamisch gesteuertes Portfolio aufzubauen,
-            in dem du <b>Kontrolle, Transparenz und Dividenden direkt selbst</b> behältst.
-        </div>
-        <span class="hero-badge">Dynamic Allocation</span>
-        <span class="hero-badge">Direct Equity Ownership</span>
-        <span class="hero-badge">Buy & Hold Benchmark</span>
-        <span class="hero-badge">Launch Version 5.0.3</span>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-with st.expander("⚠️ Wichtiger Hinweis"):
-    st.markdown("""
-**Allocato ist kein Anlageberatungstool.**  
-Die dargestellten Ergebnisse sind historische Simulationen und keine Garantie für zukünftige Renditen.  
-Jede Anlageentscheidung triffst du selbst. Vergangene Performance ist kein Indikator für zukünftige Ergebnisse.
-""")
-st.markdown(
-    """
-    <div class="story-box">
-        <div class="section-label">Warum Allocato?</div>
-        <b>Mehr Kontrolle. Mehr Transparenz. Mehr Eigentum.</b><br><br>
-        Viele Anleger stecken ihr Geld in Produkte, deren Regeln sie kaum kennen,
-        zahlen laufende Gebühren und geben Entscheidungen komplett aus der Hand.
-        Allocato geht den anderen Weg:
-        <br><br>
-        <b>Du definierst den Anlagekorb. Die Engine übernimmt die Logik.</b><br>
-        Sie bewertet Momentum, Trend und Risiko, gewichtet die stärksten Titel neu
-        und versucht, Kapital intelligent statt passiv zu allokieren.
-        <br><br>
-        <span class="small-note">
-        Allocato ist kein Versprechen auf sichere Gewinne.
-        Es ist ein Werkzeug für Anleger, die bewusstere Entscheidungen treffen wollen —
-        mit mehr Eigentum, mehr Transparenz und weniger Abhängigkeit von Standardlösungen.
-        </span>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-# =========================
 # Defaults / Session State
 # =========================
 defaults = {
+    "language": "DE",
     "initial_capital": 10000,
     "monthly_savings": 500,
     "period": "5y",
@@ -141,6 +32,16 @@ defaults = {
     "assets_input": "AAPL\nSAP.DE\nSIE.DE\nALV.DE\nMUV2.DE\nJNJ\nPG",
 }
 
+for k, v in defaults.items():
+    if k not in st.session_state:
+        st.session_state[k] = v
+
+if "_pending_preset" not in st.session_state:
+    st.session_state["_pending_preset"] = None
+
+# =========================
+# Presets
+# =========================
 PRESETS = {
     "Quality": {
         "assets_input": "AAPL\nSAP.DE\nSIE.DE\nALV.DE\nMUV2.DE\nJNJ\nPG",
@@ -206,17 +107,485 @@ PRESETS = {
     },
 }
 
-for k, v in defaults.items():
-    if k not in st.session_state:
-        st.session_state[k] = v
+# =========================
+# Translations
+# =========================
+TRANSLATIONS = {
+    "DE": {
+        "page_badges": [
+            "Dynamic Allocation",
+            "Direct Equity Ownership",
+            "Buy & Hold Benchmark",
+            "Launch Version 5.1.0",
+        ],
+        "hero_sub": (
+            "Dein smarter Portfolio-Manager für Direktaktien. "
+            "Nicht blind kaufen. Nicht unnötig Gebühren zahlen. "
+            "Nicht darauf hoffen, dass irgendein Produkt schon irgendwie passt."
+            "<br><br>"
+            "Allocato hilft dir, ein dynamisch gesteuertes Portfolio aufzubauen, "
+            "in dem du <b>Kontrolle, Transparenz und Dividenden direkt selbst</b> behältst."
+        ),
+        "warning_expander": "⚠️ Wichtiger Hinweis",
+        "warning_text": (
+            "**Allocato ist kein Anlageberatungstool.**  \n"
+            "Die dargestellten Ergebnisse sind historische Simulationen und keine Garantie für zukünftige Renditen.  \n"
+            "Jede Anlageentscheidung triffst du selbst. Vergangene Performance ist kein Indikator für zukünftige Ergebnisse."
+        ),
+        "why_label": "Warum Allocato?",
+        "why_title": "Mehr Kontrolle. Mehr Transparenz. Mehr Eigentum.",
+        "why_text": (
+            "Viele Anleger stecken ihr Geld in Produkte, deren Regeln sie kaum kennen, "
+            "zahlen laufende Gebühren und geben Entscheidungen komplett aus der Hand. "
+            "Allocato geht den anderen Weg:"
+            "<br><br>"
+            "<b>Du definierst den Anlagekorb. Die Engine übernimmt die Logik.</b><br>"
+            "Sie bewertet Momentum, Trend und Risiko, gewichtet die stärksten Titel neu "
+            "und versucht, Kapital intelligent statt passiv zu allokieren."
+            "<br><br>"
+            "<span class='small-note'>"
+            "Allocato ist kein Versprechen auf sichere Gewinne. "
+            "Es ist ein Werkzeug für Anleger, die bewusstere Entscheidungen treffen wollen — "
+            "mit mehr Eigentum, mehr Transparenz und weniger Abhängigkeit von Standardlösungen."
+            "</span>"
+        ),
+        "sidebar_language": "Sprache",
+        "sidebar_settings": "Einstellungen",
+        "start_capital": "Startkapital (€)",
+        "start_capital_help": "Einmalige Anfangsinvestition.",
+        "monthly_savings": "Monatliche Sparrate (€)",
+        "monthly_savings_help": "Zusätzlicher Betrag, der bei Monatswechsel investierbar wird.",
+        "period": "Zeitraum",
+        "period_help": "Für Momentum-Strategien sind 3 bis 5 Jahre meist am sinnvollsten.",
+        "rebalance": "Rebalancing",
+        "fee": "Transaktionskosten pro Trade (%)",
+        "fee_help": "Gebühren und Slippage pro Umschichtung.",
+        "min_score": "Mindest-Score für Kauf",
+        "min_score_help": "Nur Assets mit Score über diesem Wert dürfen gekauft werden.",
+        "max_weight": "Max. Gewicht pro Asset (%)",
+        "max_weight_help": "Begrenzt die maximale Positionsgröße pro Asset.",
+        "vol_penalty": "Volatilitätsstrafe",
+        "vol_penalty_help": "Je höher dieser Wert, desto stärker werden schwankungsreiche Assets bestraft.",
+        "cash_interest": "Cash-Zins p.a. (%)",
+        "cash_interest_help": "Optionaler Zins auf uninvestiertes Cash.",
+        "regime_filter": "Marktregime-Filter nutzen (SPY > SMA200)",
+        "regime_filter_help": "Wenn aktiv, investiert der Bot nur offensiv, wenn SPY über SMA200 liegt.",
+        "show_debug": "Debug-Bereich anzeigen",
+        "show_debug_help": "Zeigt Rohdaten und interne Details an.",
+        "aggressive_mode": "Aggressiv-Modus",
+        "conviction": "Conviction-Stärke",
+        "conviction_help": "Je höher, desto stärker werden die besten Assets bevorzugt.",
+        "soft_cash_mode": "Soft Cash Mode nutzen",
+        "soft_cash_mode_help": "Wenn keine klaren Signale da sind, bleibt der Bot nicht komplett in Cash.",
+        "cash_floor": "Ziel-Cash-Untergrenze (%)",
+        "cash_floor_help": "Der Bot versucht, im Normalfall mindestens so viel Cash zu halten.",
+        "cash_ceiling": "Ziel-Cash-Obergrenze (%)",
+        "cash_ceiling_help": "Der Bot versucht, im Normalfall nicht deutlich mehr Cash zu halten.",
+        "soft_cash_ratio": "Soft-Cash Investitionsquote (%)",
+        "soft_cash_ratio_help": "Wenn Soft Cash Mode aktiv ist und keine starken Signale da sind, bleibt ungefähr dieser Anteil investiert.",
+        "visualization": "Visualisierung",
+        "weight_chart_top_n": "Anzahl Assets im Gewichts-Chart",
+        "weight_chart_top_n_help": "Zeigt im Gewichtungsverlauf nur die größten durchschnittlichen Positionen. Der Rest wird zu 'Sonstige' zusammengefasst.",
+        "recommended_setups": "⚡ Empfohlene Setups",
+        "asset_basket": "Asset-Korb",
+        "tickers_input": "Ticker (ein pro Zeile)",
+        "tickers_input_help": "Der Bot wählt aus diesem Korb selbst die stärksten Assets.",
+        "top_n": "Top-N Assets halten",
+        "top_n_help": "Wie viele der stärksten Assets gleichzeitig gehalten werden.",
+        "preset_quality": "Quality",
+        "preset_global": "Global",
+        "preset_europe": "Europa",
+        "preset_dividend": "Dividend",
+        "about_expander": "ℹ️ Was ist Allocato?",
+        "about_text": (
+            "Allocato ist für Anleger gedacht, die mehr Kontrolle über ihr Kapital wollen.\n\n"
+            "Nicht blind kaufen.  \n"
+            "Nicht dauerhaft Gebühren zahlen, ohne zu wissen, was im Produkt eigentlich passiert.  \n"
+            "Nicht Dividendenströme und Entscheidungen komplett auslagern.\n\n"
+            "**Die Idee hinter Allocato:**\n"
+            "Du definierst deinen Anlagekorb selbst.  \n"
+            "Die Engine bewertet Stärke, Trend und Risiko und verteilt das Kapital dynamisch auf die stärksten Titel.\n\n"
+            "Damit entsteht ein Portfolio-Manager für Direktaktien und ETFs, der versucht:\n"
+            "- Chancen aktiv zu nutzen\n"
+            "- Cash bewusst zu steuern\n"
+            "- Risiko kontrollierbarer zu halten\n"
+            "- und Entscheidungen nachvollziehbar zu machen"
+        ),
+        "metrics_expander": "🧠 Wie interpretiere ich die Kennzahlen?",
+        "metrics_text": (
+            "**Bot Endwert**  \nEndwert des aktiven Portfolios.\n\n"
+            "**Buy & Hold Endwert**  \nEndwert eines passiven Vergleichsportfolios mit denselben Assets.\n\n"
+            "**Outperformance**  \nDifferenz der Gesamtrendite in Prozentpunkten. Positiv = Bot schlägt Buy & Hold.\n\n"
+            "**Exposure**  \nWie viel Prozent des Portfolios im Durchschnitt investiert waren.\n\n"
+            "**Ø Cash-Quote**  \nDurchschnittlicher Cash-Anteil.\n\n"
+            "**CAGR**  \nJährliche durchschnittliche Wachstumsrate.\n\n"
+            "**Max Drawdown**  \nGrößter historischer Rückgang vom Hochpunkt.\n\n"
+            "**Volatilität**  \nSchwankungsintensität des Portfolios.\n\n"
+            "**Sharpe Ratio**  \nRendite im Verhältnis zur Schwankung. Höher ist meist besser."
+        ),
+        "preset_expander": "⚙️ Empfohlene Start-Setups",
+        "preset_text": (
+            "**Quality / Direktaktien-Korb**\n"
+            "- AAPL\n- SAP.DE\n- SIE.DE\n- ALV.DE\n- MUV2.DE\n- JNJ\n- PG\n\n"
+            "Empfehlung:\n"
+            "- Top-N: 4\n"
+            "- Rebalancing: Monatlich\n"
+            "- Max Gewicht: 55\n"
+            "- Conviction-Stärke: 2.0\n"
+            "- Volatilitätsstrafe: 0.08\n\n"
+            "**Großer globaler Korb**\n"
+            "- ETFs, Tech, Europa, Dividenden gemischt\n\n"
+            "Empfehlung:\n"
+            "- Top-N: 5 bis 6\n"
+            "- Rebalancing: Monatlich\n"
+            "- Max Gewicht: 55\n"
+            "- Conviction-Stärke: 2.0 bis 2.5\n\n"
+            "**Europa / Deutschland**\n"
+            "- SAP.DE\n- SIE.DE\n- AIR.DE\n- ALV.DE\n- MUV2.DE\n- BMW.DE\n- RWE.DE\n- DTE.DE\n\n"
+            "Empfehlung:\n"
+            "- Top-N: 5\n"
+            "- Rebalancing: Monatlich oder Quartalsweise\n"
+            "- Cashbereich: 8 bis 18"
+        ),
+        "calculate": "Portfolio berechnen",
+        "spinner": "Berechne aggressives dynamisches Portfolio...",
+        "error_min_assets": "Bitte mindestens 2 Ticker eingeben.",
+        "warning_skip": "Keine Daten für {ticker} – wird übersprungen.",
+        "error_no_data": "Es konnten keine gültigen Kursdaten geladen werden.",
+        "error_less_than_2": "Nach dem Laden sind weniger als 2 gültige Assets übrig.",
+        "error_too_few_rows": "Zu wenig gültige Daten nach Berechnung der Indikatoren.",
+        "warning_spy": "SPY-Daten konnten nicht geladen werden. Regime-Filter wird deaktiviert.",
+        "status_success": "✅ Der Bot schlägt Buy & Hold in diesem Test.",
+        "status_neutral": "ℹ️ Der Bot liegt nahe an Buy & Hold. Für eine aktive aggressive Strategie ist das bereits ordentlich.",
+        "status_bad": "⚠️ Der Bot liegt klar hinter Buy & Hold. Prüfe besonders Cash-Quote, Top-N, Conviction-Stärke und Rebalancing.",
+        "cash_high": "💡 Die durchschnittliche Cash-Quote liegt über 15 %. Für einen aggressiven Modus könntest du Soft Cash Mode, niedrigeren Mindest-Score oder höheres Max-Gewicht testen.",
+        "cash_low": "💡 Die durchschnittliche Cash-Quote liegt unter 5 %. Das ist offensiv, kann aber Drawdowns erhöhen.",
+        "metric_bot_end": "Bot Endwert",
+        "metric_bh_end": "Buy & Hold Endwert",
+        "metric_outperf": "Outperformance",
+        "metric_trades": "Trades",
+        "metric_bot_return": "Bot Rendite",
+        "metric_bh_return": "Buy & Hold Rendite",
+        "metric_exposure": "Exposure",
+        "metric_cash": "Ø Cash-Quote",
+        "metric_cagr": "Bot CAGR",
+        "metric_dd": "Bot Max Drawdown",
+        "metric_vol": "Bot Volatilität",
+        "metric_sharpe": "Bot Sharpe",
+        "end_capital_success": "Endkapital dynamischer Bot: {value}",
+        "equity_title": "Dynamischer Portfolio Bot vs Buy & Hold",
+        "equity_label_bot": "Dynamischer Bot",
+        "equity_label_bh": "Buy & Hold",
+        "export_title": "Export",
+        "export_caption": "Lade Equity-Verlauf, Rebalancing-Log oder Gewichtshistorie als CSV herunter.",
+        "export_equity": "⬇️ Equity Curve CSV",
+        "export_rebal": "⬇️ Rebalancing Log CSV",
+        "export_weights": "⬇️ Gewichte CSV",
+        "interpret_expander": "📌 Interpretation dieses Ergebnisses",
+        "interpret_text": (
+            "**Zusammenfassung dieses Testlaufs**\n\n"
+            "- **Outperformance:** {outperformance:.2f} Prozentpunkte\n"
+            "- **Exposure:** {exposure:.1f} %\n"
+            "- **Ø Cash-Quote:** {cash:.1f} %\n"
+            "- **Trades:** {trades}\n"
+            "- **Conviction-Stärke:** {conviction:.1f}\n"
+            "- **Soft Cash Mode:** {soft_cash}\n"
+            "- **Ziel-Cashbereich:** {cash_floor}% bis {cash_ceiling}%\n\n"
+            "**Interpretation**\n"
+            "- Höhere Conviction-Stärke konzentriert das Kapital stärker auf Gewinner.\n"
+            "- Eine Cash-Quote zwischen 5% und 15% ist hier das Zielbild.\n"
+            "- Ist die Trade-Zahl sehr hoch, kann der Bot zu nervös sein.\n"
+            "- Ist die Cash-Quote zu hoch, wird in starken Bullenphasen oft Rendite liegen gelassen.\n"
+            "- Ein geringerer Max Drawdown kann den Bot trotz geringerer Rendite strategisch interessant machen."
+        ),
+        "soft_cash_on": "Aktiv",
+        "soft_cash_off": "Aus",
+        "current_weights": "Aktuelle Portfolio-Gewichte",
+        "active_positions_empty": "Aktuell sind keine aktiven Positionen im Portfolio.",
+        "show_all_assets": "Alle Assets inkl. 0%-Gewicht anzeigen",
+        "weights_chart_title": "Gewichtungsverlauf im Portfolio",
+        "weights_chart_caption": "Angezeigt werden die größten durchschnittlichen Positionen sowie 'Sonstige' und Cash.",
+        "weights_chart_inner_title": "Portfolio-Gewichte über die Zeit",
+        "weights_chart_ylabel": "Gewicht in %",
+        "other_label": "Sonstige",
+        "latest_selection": "🎯 Zuletzt ausgewählte Top-Assets",
+        "last_selection_date": "Letzte Auswahl am {date}:",
+        "last_target_weights": "Letzte Zielgewichte:",
+        "no_positions_selected": "Keine Positionen ausgewählt.",
+        "no_selection_yet": "Noch keine Auswahl vorhanden.",
+        "weights_table": "📊 Gewichtungsverlauf als Tabelle",
+        "weights_rebalance": "🔁 Gewichte an den Rebalancing-Zeitpunkten",
+        "weights_rebalance_empty": "Keine Rebalancing-Zeitpunkte vorhanden.",
+        "rebal_log": "📒 Rebalancing-Log",
+        "rebal_log_empty": "Noch kein Rebalancing geloggt.",
+        "debug_expander": "🛠 Debug / Daten prüfen",
+        "debug_used_tickers": "Verwendete Ticker:",
+        "debug_skipped": "Übersprungene Ticker:",
+        "debug_top_n": "Top-N gewählt:",
+        "debug_top_n_effective": "Top-N effektiv:",
+        "debug_max_weight": "Max. Gewicht je Asset (%):",
+        "debug_conviction": "Conviction-Stärke:",
+        "debug_soft_cash": "Soft Cash Mode:",
+        "debug_regime": "Regime-Filter aktiv:",
+        "debug_last_prices": "Letzte Preise:",
+        "debug_last_scores": "Letzte Scores:",
+        "info_start": "👈 Wähle ein Setup oder gib deinen Asset-Korb ein und klicke auf 'Portfolio berechnen'.",
+        "date_col": "Datum",
+        "regime_ok_col": "Regime OK",
+        "selected_assets_col": "Ausgewählte Assets",
+        "turnover_col": "Turnover €",
+        "fees_col": "Gebühren €",
+        "cash_eur_col": "Cash €",
+        "portfolio_eur_col": "Portfolio €",
+        "weights_ticker_col": "Ticker",
+        "weights_current_col": "Aktuelles Gewicht %",
+        "weights_target_col": "Zielgewicht %",
+        "bh_cash_label": "Cash (€)",
+        "invested_label": "Investiert (€)",
+        "bot_portfolio_label": "Bot Portfolio",
+        "buy_hold_label": "Buy & Hold",
+    },
+    "EN": {
+        "page_badges": [
+            "Dynamic Allocation",
+            "Direct Equity Ownership",
+            "Buy & Hold Benchmark",
+            "Launch Version 5.1.0",
+        ],
+        "hero_sub": (
+            "Your smart portfolio manager for direct equities. "
+            "Do not buy blindly. Do not pay unnecessary fees. "
+            "Do not just hope that some product somehow fits."
+            "<br><br>"
+            "Allocato helps you build a dynamically managed portfolio "
+            "where you keep <b>control, transparency and dividends directly</b>."
+        ),
+        "warning_expander": "⚠️ Important notice",
+        "warning_text": (
+            "**Allocato is not an investment advisory tool.**  \n"
+            "The results shown are historical simulations and not a guarantee of future returns.  \n"
+            "Every investment decision is your own. Past performance is not an indicator of future results."
+        ),
+        "why_label": "Why Allocato?",
+        "why_title": "More control. More transparency. More ownership.",
+        "why_text": (
+            "Many investors put money into products whose rules they barely understand, "
+            "pay ongoing fees and hand over decisions completely. "
+            "Allocato takes a different path:"
+            "<br><br>"
+            "<b>You define the asset universe. The engine handles the logic.</b><br>"
+            "It evaluates momentum, trend and risk, reweights the strongest assets "
+            "and aims to allocate capital intelligently instead of passively."
+            "<br><br>"
+            "<span class='small-note'>"
+            "Allocato is not a promise of guaranteed profits. "
+            "It is a tool for investors who want to make more conscious decisions — "
+            "with more ownership, more transparency and less dependence on standard solutions."
+            "</span>"
+        ),
+        "sidebar_language": "Language",
+        "sidebar_settings": "Settings",
+        "start_capital": "Starting capital (€)",
+        "start_capital_help": "One-time initial investment.",
+        "monthly_savings": "Monthly savings (€)",
+        "monthly_savings_help": "Additional amount that becomes investable at each month change.",
+        "period": "Period",
+        "period_help": "For momentum strategies, 3 to 5 years usually makes the most sense.",
+        "rebalance": "Rebalancing",
+        "fee": "Transaction costs per trade (%)",
+        "fee_help": "Fees and slippage per rebalance.",
+        "min_score": "Minimum score for buying",
+        "min_score_help": "Only assets with a score above this threshold may be bought.",
+        "max_weight": "Max weight per asset (%)",
+        "max_weight_help": "Limits the maximum position size per asset.",
+        "vol_penalty": "Volatility penalty",
+        "vol_penalty_help": "The higher this value, the more strongly volatile assets are penalized.",
+        "cash_interest": "Cash interest p.a. (%)",
+        "cash_interest_help": "Optional interest on uninvested cash.",
+        "regime_filter": "Use market regime filter (SPY > SMA200)",
+        "regime_filter_help": "If enabled, the bot only invests offensively when SPY is above its SMA200.",
+        "show_debug": "Show debug section",
+        "show_debug_help": "Displays raw data and internal details.",
+        "aggressive_mode": "Aggressive mode",
+        "conviction": "Conviction strength",
+        "conviction_help": "The higher it is, the more strongly the best assets are favored.",
+        "soft_cash_mode": "Use soft cash mode",
+        "soft_cash_mode_help": "If there are no clear signals, the bot does not stay fully in cash.",
+        "cash_floor": "Target cash floor (%)",
+        "cash_floor_help": "The bot tries to keep at least this much cash under normal conditions.",
+        "cash_ceiling": "Target cash ceiling (%)",
+        "cash_ceiling_help": "The bot tries not to keep significantly more cash than this under normal conditions.",
+        "soft_cash_ratio": "Soft cash investment ratio (%)",
+        "soft_cash_ratio_help": "If soft cash mode is active and there are no strong signals, roughly this share remains invested.",
+        "visualization": "Visualization",
+        "weight_chart_top_n": "Number of assets in weight chart",
+        "weight_chart_top_n_help": "Shows only the largest average positions in the weight history. The rest is grouped into 'Other'.",
+        "recommended_setups": "⚡ Recommended setups",
+        "asset_basket": "Asset universe",
+        "tickers_input": "Tickers (one per line)",
+        "tickers_input_help": "The bot selects the strongest assets from this universe.",
+        "top_n": "Hold top-N assets",
+        "top_n_help": "How many of the strongest assets are held at the same time.",
+        "preset_quality": "Quality",
+        "preset_global": "Global",
+        "preset_europe": "Europe",
+        "preset_dividend": "Dividend",
+        "about_expander": "ℹ️ What is Allocato?",
+        "about_text": (
+            "Allocato is built for investors who want more control over their capital.\n\n"
+            "Do not buy blindly.  \n"
+            "Do not keep paying fees without knowing what is actually happening inside the product.  \n"
+            "Do not outsource dividend streams and decisions completely.\n\n"
+            "**The idea behind Allocato:**\n"
+            "You define your own asset universe.  \n"
+            "The engine evaluates strength, trend and risk and dynamically allocates capital to the strongest assets.\n\n"
+            "This creates a portfolio manager for direct equities and ETFs that aims to:\n"
+            "- actively capture opportunities\n"
+            "- manage cash deliberately\n"
+            "- keep risk more controllable\n"
+            "- and make decisions more transparent"
+        ),
+        "metrics_expander": "🧠 How do I interpret the metrics?",
+        "metrics_text": (
+            "**Bot ending value**  \nFinal value of the active portfolio.\n\n"
+            "**Buy & Hold ending value**  \nFinal value of a passive benchmark portfolio with the same assets.\n\n"
+            "**Outperformance**  \nDifference in total return in percentage points. Positive = bot beats Buy & Hold.\n\n"
+            "**Exposure**  \nAverage share of the portfolio that was invested.\n\n"
+            "**Avg. cash ratio**  \nAverage cash share.\n\n"
+            "**CAGR**  \nAnnualized growth rate.\n\n"
+            "**Max drawdown**  \nLargest historical decline from a previous peak.\n\n"
+            "**Volatility**  \nHow strongly the portfolio fluctuates.\n\n"
+            "**Sharpe ratio**  \nReturn relative to volatility. Higher is usually better."
+        ),
+        "preset_expander": "⚙️ Recommended starter setups",
+        "preset_text": (
+            "**Quality / direct equity basket**\n"
+            "- AAPL\n- SAP.DE\n- SIE.DE\n- ALV.DE\n- MUV2.DE\n- JNJ\n- PG\n\n"
+            "Recommendation:\n"
+            "- Top-N: 4\n"
+            "- Rebalancing: Monthly\n"
+            "- Max weight: 55\n"
+            "- Conviction strength: 2.0\n"
+            "- Volatility penalty: 0.08\n\n"
+            "**Large global basket**\n"
+            "- ETFs, tech, Europe, dividend names mixed\n\n"
+            "Recommendation:\n"
+            "- Top-N: 5 to 6\n"
+            "- Rebalancing: Monthly\n"
+            "- Max weight: 55\n"
+            "- Conviction strength: 2.0 to 2.5\n\n"
+            "**Europe / Germany**\n"
+            "- SAP.DE\n- SIE.DE\n- AIR.DE\n- ALV.DE\n- MUV2.DE\n- BMW.DE\n- RWE.DE\n- DTE.DE\n\n"
+            "Recommendation:\n"
+            "- Top-N: 5\n"
+            "- Rebalancing: Monthly or Quarterly\n"
+            "- Cash range: 8 to 18"
+        ),
+        "calculate": "Calculate portfolio",
+        "spinner": "Calculating aggressive dynamic portfolio...",
+        "error_min_assets": "Please enter at least 2 tickers.",
+        "warning_skip": "No data for {ticker} – skipping.",
+        "error_no_data": "No valid price data could be loaded.",
+        "error_less_than_2": "Fewer than 2 valid assets remain after loading.",
+        "error_too_few_rows": "Not enough valid data after calculating indicators.",
+        "warning_spy": "SPY data could not be loaded. Regime filter will be disabled.",
+        "status_success": "✅ The bot beats Buy & Hold in this test.",
+        "status_neutral": "ℹ️ The bot is close to Buy & Hold. For an active aggressive strategy, that is already decent.",
+        "status_bad": "⚠️ The bot is clearly behind Buy & Hold. Check cash ratio, Top-N, conviction strength and rebalancing.",
+        "cash_high": "💡 The average cash ratio is above 15%. For a more aggressive mode, you could test soft cash mode, a lower minimum score or a higher max weight.",
+        "cash_low": "💡 The average cash ratio is below 5%. That is offensive, but it can increase drawdowns.",
+        "metric_bot_end": "Bot ending value",
+        "metric_bh_end": "Buy & Hold ending value",
+        "metric_outperf": "Outperformance",
+        "metric_trades": "Trades",
+        "metric_bot_return": "Bot return",
+        "metric_bh_return": "Buy & Hold return",
+        "metric_exposure": "Exposure",
+        "metric_cash": "Avg. cash ratio",
+        "metric_cagr": "Bot CAGR",
+        "metric_dd": "Bot max drawdown",
+        "metric_vol": "Bot volatility",
+        "metric_sharpe": "Bot Sharpe",
+        "end_capital_success": "Ending capital dynamic bot: {value}",
+        "equity_title": "Dynamic portfolio bot vs Buy & Hold",
+        "equity_label_bot": "Dynamic bot",
+        "equity_label_bh": "Buy & Hold",
+        "export_title": "Export",
+        "export_caption": "Download equity history, rebalancing log or weight history as CSV.",
+        "export_equity": "⬇️ Equity Curve CSV",
+        "export_rebal": "⬇️ Rebalancing Log CSV",
+        "export_weights": "⬇️ Weights CSV",
+        "interpret_expander": "📌 Interpretation of this result",
+        "interpret_text": (
+            "**Summary of this test run**\n\n"
+            "- **Outperformance:** {outperformance:.2f} percentage points\n"
+            "- **Exposure:** {exposure:.1f}%\n"
+            "- **Avg. cash ratio:** {cash:.1f}%\n"
+            "- **Trades:** {trades}\n"
+            "- **Conviction strength:** {conviction:.1f}\n"
+            "- **Soft cash mode:** {soft_cash}\n"
+            "- **Target cash range:** {cash_floor}% to {cash_ceiling}%\n\n"
+            "**Interpretation**\n"
+            "- Higher conviction strength concentrates capital more strongly in winners.\n"
+            "- A cash ratio between 5% and 15% is the target picture here.\n"
+            "- If the number of trades is very high, the bot may be too nervous.\n"
+            "- If the cash ratio is too high, returns may be left on the table during strong bull phases.\n"
+            "- A lower max drawdown can still make the bot strategically attractive even with lower return."
+        ),
+        "soft_cash_on": "On",
+        "soft_cash_off": "Off",
+        "current_weights": "Current portfolio weights",
+        "active_positions_empty": "There are currently no active positions in the portfolio.",
+        "show_all_assets": "Show all assets including 0% weights",
+        "weights_chart_title": "Portfolio weight history",
+        "weights_chart_caption": "Showing the largest average positions as well as 'Other' and cash.",
+        "weights_chart_inner_title": "Portfolio weights over time",
+        "weights_chart_ylabel": "Weight in %",
+        "other_label": "Other",
+        "latest_selection": "🎯 Most recently selected top assets",
+        "last_selection_date": "Latest selection on {date}:",
+        "last_target_weights": "Latest target weights:",
+        "no_positions_selected": "No positions selected.",
+        "no_selection_yet": "No selection available yet.",
+        "weights_table": "📊 Weight history as table",
+        "weights_rebalance": "🔁 Weights at rebalancing dates",
+        "weights_rebalance_empty": "No rebalancing dates available.",
+        "rebal_log": "📒 Rebalancing log",
+        "rebal_log_empty": "No rebalancing logged yet.",
+        "debug_expander": "🛠 Debug / inspect data",
+        "debug_used_tickers": "Used tickers:",
+        "debug_skipped": "Skipped tickers:",
+        "debug_top_n": "Chosen Top-N:",
+        "debug_top_n_effective": "Effective Top-N:",
+        "debug_max_weight": "Max weight per asset (%):",
+        "debug_conviction": "Conviction strength:",
+        "debug_soft_cash": "Soft cash mode:",
+        "debug_regime": "Regime filter active:",
+        "debug_last_prices": "Latest prices:",
+        "debug_last_scores": "Latest scores:",
+        "info_start": "👈 Choose a setup or enter your asset basket and click 'Calculate portfolio'.",
+        "date_col": "Date",
+        "regime_ok_col": "Regime OK",
+        "selected_assets_col": "Selected assets",
+        "turnover_col": "Turnover €",
+        "fees_col": "Fees €",
+        "cash_eur_col": "Cash €",
+        "portfolio_eur_col": "Portfolio €",
+        "weights_ticker_col": "Ticker",
+        "weights_current_col": "Current weight %",
+        "weights_target_col": "Target weight %",
+        "bh_cash_label": "Cash (€)",
+        "invested_label": "Invested (€)",
+        "bot_portfolio_label": "Bot portfolio",
+        "buy_hold_label": "Buy & Hold",
+    },
+}
 
-if "_pending_preset" not in st.session_state:
-    st.session_state["_pending_preset"] = None
-
-
+# =========================
+# Helpers for language / presets
+# =========================
 def queue_preset(name: str):
     st.session_state["_pending_preset"] = name
-
 
 def apply_pending_preset():
     preset_name = st.session_state.get("_pending_preset")
@@ -225,12 +594,104 @@ def apply_pending_preset():
             st.session_state[key] = value
         st.session_state["_pending_preset"] = None
 
-
-# Wichtig: Preset anwenden, bevor Widgets gebaut werden
 apply_pending_preset()
 
+lang = st.session_state.get("language", "DE")
+T = TRANSLATIONS[lang]
+
 # =========================
-# Helper
+# Styling
+# =========================
+st.markdown(
+    """
+    <style>
+    .hero-box {
+        background: linear-gradient(135deg, #0f172a 0%, #111827 45%, #1f2937 100%);
+        padding: 1.4rem 1.6rem;
+        border-radius: 18px;
+        color: white;
+        margin-bottom: 1rem;
+        border: 1px solid rgba(255,255,255,0.08);
+    }
+    .hero-title {
+        font-size: 2.0rem;
+        font-weight: 800;
+        margin-bottom: 0.2rem;
+        letter-spacing: -0.02em;
+    }
+    .hero-sub {
+        font-size: 1.05rem;
+        opacity: 0.95;
+        margin-bottom: 0.8rem;
+        line-height: 1.45;
+    }
+    .hero-badge {
+        display: inline-block;
+        background: rgba(255,255,255,0.12);
+        padding: 0.35rem 0.7rem;
+        border-radius: 999px;
+        font-size: 0.85rem;
+        margin-right: 0.4rem;
+        margin-bottom: 0.4rem;
+    }
+    .story-box {
+        background: linear-gradient(135deg, rgba(15,23,42,0.92) 0%, rgba(30,41,59,0.92) 100%);
+        border: 1px solid rgba(255,255,255,0.08);
+        padding: 1rem 1.1rem;
+        border-radius: 16px;
+        margin-top: 0.8rem;
+        margin-bottom: 0.8rem;
+        color: rgba(255,255,255,0.95);
+    }
+    .small-note {
+        color: rgba(255,255,255,0.72);
+        font-size: 0.95rem;
+        line-height: 1.45;
+    }
+    .section-label {
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        opacity: 0.7;
+        margin-bottom: 0.4rem;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+# =========================
+# Header / Branding
+# =========================
+badges_html = "".join([f"<span class='hero-badge'>{badge}</span>" for badge in T["page_badges"]])
+
+st.markdown(
+    f"""
+    <div class="hero-box">
+        <div class="hero-title">🚀 Allocato</div>
+        <div class="hero-sub">{T["hero_sub"]}</div>
+        {badges_html}
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+with st.expander(T["warning_expander"]):
+    st.markdown(T["warning_text"])
+
+st.markdown(
+    f"""
+    <div class="story-box">
+        <div class="section-label">{T["why_label"]}</div>
+        <b>{T["why_title"]}</b><br><br>
+        {T["why_text"]}
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+# =========================
+# Helpers
 # =========================
 def load_close_prices(tickers, period):
     series_map = {}
@@ -392,7 +853,7 @@ def build_soft_cash_selection(score_today, trend_ok, top_n, min_score, invest_ra
     return fallback, weights, invest_ratio
 
 
-def simplify_weight_chart(weights_with_cash: pd.DataFrame, top_k: int):
+def simplify_weight_chart(weights_with_cash: pd.DataFrame, top_k: int, other_label: str):
     cols_no_cash = [c for c in weights_with_cash.columns if c != "Cash"]
     avg_weights = weights_with_cash[cols_no_cash].mean().sort_values(ascending=False)
 
@@ -404,7 +865,7 @@ def simplify_weight_chart(weights_with_cash: pd.DataFrame, top_k: int):
         out[c] = weights_with_cash[c]
 
     if other:
-        out["Sonstige"] = weights_with_cash[other].sum(axis=1)
+        out[other_label] = weights_with_cash[other].sum(axis=1)
 
     if "Cash" in weights_with_cash.columns:
         out["Cash"] = weights_with_cash["Cash"]
@@ -419,298 +880,224 @@ def make_export_csv(df: pd.DataFrame) -> bytes:
 # =========================
 # Sidebar
 # =========================
-st.sidebar.header("Einstellungen")
+st.sidebar.selectbox(
+    T["sidebar_language"],
+    options=["DE", "EN"],
+    key="language",
+)
+
+lang = st.session_state.get("language", "DE")
+T = TRANSLATIONS[lang]
+
+st.sidebar.header(T["sidebar_settings"])
 
 initial_capital = st.sidebar.number_input(
-    "Startkapital (€)",
+    T["start_capital"],
     min_value=0,
     step=1000,
     key="initial_capital",
-    help="Einmalige Anfangsinvestition."
+    help=T["start_capital_help"],
 )
 
 monthly_savings = st.sidebar.number_input(
-    "Monatliche Sparrate (€)",
+    T["monthly_savings"],
     min_value=0,
     step=50,
     key="monthly_savings",
-    help="Zusätzlicher Betrag, der bei Monatswechsel investierbar wird."
+    help=T["monthly_savings_help"],
 )
 
 period = st.sidebar.selectbox(
-    "Zeitraum",
+    T["period"],
     ["1y", "2y", "3y", "5y"],
     key="period",
-    help="Für Momentum-Strategien sind 3 bis 5 Jahre meist am sinnvollsten."
+    help=T["period_help"],
 )
 
+rebalance_options = ["Monatlich", "Quartalsweise"]
 rebalance_freq = st.sidebar.selectbox(
-    "Rebalancing",
-    ["Monatlich", "Quartalsweise"],
+    T["rebalance"],
+    rebalance_options,
     key="rebalance_freq",
-    help="Wie oft das Portfolio neu bewertet und angepasst wird."
 )
 
 fee_pct_input = st.sidebar.number_input(
-    "Transaktionskosten pro Trade (%)",
+    T["fee"],
     min_value=0.0,
     step=0.01,
     format="%.2f",
     key="fee_pct_input",
-    help="Gebühren und Slippage pro Umschichtung."
+    help=T["fee_help"],
 )
 fee_pct = fee_pct_input / 100.0
 
 min_score = st.sidebar.number_input(
-    "Mindest-Score für Kauf",
+    T["min_score"],
     step=0.01,
     format="%.2f",
     key="min_score",
-    help="Nur Assets mit Score über diesem Wert dürfen gekauft werden."
+    help=T["min_score_help"],
 )
 
 max_weight_pct = st.sidebar.number_input(
-    "Max. Gewicht pro Asset (%)",
+    T["max_weight"],
     min_value=1,
     max_value=100,
     step=5,
     key="max_weight_pct",
-    help="Begrenzt die maximale Positionsgröße pro Asset."
+    help=T["max_weight_help"],
 )
 
 vol_penalty = st.sidebar.number_input(
-    "Volatilitätsstrafe",
+    T["vol_penalty"],
     min_value=0.0,
     step=0.01,
     format="%.2f",
     key="vol_penalty",
-    help="Je höher dieser Wert, desto stärker werden schwankungsreiche Assets bestraft."
+    help=T["vol_penalty_help"],
 )
 
 cash_interest_pct = st.sidebar.number_input(
-    "Cash-Zins p.a. (%)",
+    T["cash_interest"],
     min_value=0.0,
     step=0.10,
     format="%.2f",
     key="cash_interest_pct",
-    help="Optionaler Zins auf uninvestiertes Cash."
+    help=T["cash_interest_help"],
 )
 
 use_regime_filter = st.sidebar.checkbox(
-    "Marktregime-Filter nutzen (SPY > SMA200)",
+    T["regime_filter"],
     key="use_regime_filter",
-    help="Wenn aktiv, investiert der Bot nur offensiv, wenn SPY über SMA200 liegt."
+    help=T["regime_filter_help"],
 )
 
 show_debug = st.sidebar.checkbox(
-    "Debug-Bereich anzeigen",
+    T["show_debug"],
     key="show_debug",
-    help="Zeigt Rohdaten und interne Details an."
+    help=T["show_debug_help"],
 )
 
-st.sidebar.subheader("Aggressiv-Modus")
+st.sidebar.subheader(T["aggressive_mode"])
 
 conviction_power = st.sidebar.slider(
-    "Conviction-Stärke",
+    T["conviction"],
     min_value=1.0,
     max_value=4.0,
     step=0.1,
     key="conviction_power",
-    help="Je höher, desto stärker werden die besten Assets bevorzugt."
+    help=T["conviction_help"],
 )
 
 soft_cash_mode = st.sidebar.checkbox(
-    "Soft Cash Mode nutzen",
+    T["soft_cash_mode"],
     key="soft_cash_mode",
-    help="Wenn keine klaren Signale da sind, bleibt der Bot nicht komplett in Cash."
+    help=T["soft_cash_mode_help"],
 )
 
 target_cash_floor_pct = st.sidebar.slider(
-    "Ziel-Cash-Untergrenze (%)",
+    T["cash_floor"],
     min_value=0,
     max_value=20,
     step=1,
     key="target_cash_floor_pct",
-    help="Der Bot versucht, im Normalfall mindestens so viel Cash zu halten."
+    help=T["cash_floor_help"],
 )
 
 target_cash_ceiling_pct = st.sidebar.slider(
-    "Ziel-Cash-Obergrenze (%)",
+    T["cash_ceiling"],
     min_value=5,
     max_value=30,
     step=1,
     key="target_cash_ceiling_pct",
-    help="Der Bot versucht, im Normalfall nicht deutlich mehr Cash zu halten."
+    help=T["cash_ceiling_help"],
 )
 
 soft_cash_invest_ratio_pct = st.sidebar.slider(
-    "Soft-Cash Investitionsquote (%)",
+    T["soft_cash_ratio"],
     min_value=20,
     max_value=95,
     step=5,
     key="soft_cash_invest_ratio_pct",
-    help="Wenn Soft Cash Mode aktiv ist und keine starken Signale da sind, bleibt ungefähr dieser Anteil investiert."
+    help=T["soft_cash_ratio_help"],
 )
 
-st.sidebar.subheader("Visualisierung")
+st.sidebar.subheader(T["visualization"])
 weight_chart_top_n = st.sidebar.slider(
-    "Anzahl Assets im Gewichts-Chart",
+    T["weight_chart_top_n"],
     min_value=5,
     max_value=15,
     step=1,
     key="weight_chart_top_n",
-    help="Zeigt im Gewichtungsverlauf nur die größten durchschnittlichen Positionen. Der Rest wird zu 'Sonstige' zusammengefasst."
+    help=T["weight_chart_top_n_help"],
 )
 
-st.sidebar.subheader("⚡ Empfohlene Setups")
+st.sidebar.subheader(T["recommended_setups"])
 col_a, col_b = st.sidebar.columns(2)
-col_a.button("Quality", on_click=queue_preset, args=("Quality",))
-col_b.button("Global", on_click=queue_preset, args=("Global",))
+col_a.button(T["preset_quality"], on_click=queue_preset, args=("Quality",))
+col_b.button(T["preset_global"], on_click=queue_preset, args=("Global",))
 
 col_c, col_d = st.sidebar.columns(2)
-col_c.button("Europa", on_click=queue_preset, args=("Europa",))
-col_d.button("Dividend", on_click=queue_preset, args=("Dividend",))
+col_c.button(T["preset_europe"], on_click=queue_preset, args=("Europa",))
+col_d.button(T["preset_dividend"], on_click=queue_preset, args=("Dividend",))
 
-st.sidebar.subheader("Asset-Korb")
+st.sidebar.subheader(T["asset_basket"])
 assets_input = st.sidebar.text_area(
-    "Ticker (ein pro Zeile)",
+    T["tickers_input"],
     height=180,
     key="assets_input",
-    help="Der Bot wählt aus diesem Korb selbst die stärksten Assets."
+    help=T["tickers_input_help"],
 )
 
 input_tickers = [x.strip() for x in assets_input.splitlines() if x.strip()]
 max_assets = max(1, len(input_tickers))
 
 top_n = st.sidebar.slider(
-    "Top-N Assets halten",
+    T["top_n"],
     min_value=1,
     max_value=max_assets,
     key="top_n",
-    help="Wie viele der stärksten Assets gleichzeitig gehalten werden."
+    help=T["top_n_help"],
 )
 
 # =========================
-# Erklärungen
+# Explainers
 # =========================
-with st.expander("ℹ️ Was ist Allocato?"):
-    st.markdown("""
-Allocato ist für Anleger gedacht, die mehr Kontrolle über ihr Kapital wollen.
+with st.expander(T["about_expander"]):
+    st.markdown(T["about_text"])
 
-Nicht blind kaufen.  
-Nicht dauerhaft Gebühren zahlen, ohne zu wissen, was im Produkt eigentlich passiert.  
-Nicht Dividendenströme und Entscheidungen komplett auslagern.
+with st.expander(T["metrics_expander"]):
+    st.markdown(T["metrics_text"])
 
-**Die Idee hinter Allocato:**
-Du definierst deinen Anlagekorb selbst.  
-Die Engine bewertet Stärke, Trend und Risiko und verteilt das Kapital dynamisch auf die stärksten Titel.
-
-Damit entsteht ein Portfolio-Manager für Direktaktien und ETFs, der versucht:
-- Chancen aktiv zu nutzen
-- Cash bewusst zu steuern
-- Risiko kontrollierbarer zu halten
-- und Entscheidungen nachvollziehbar zu machen
-""")
-
-with st.expander("🧠 Wie interpretiere ich die Kennzahlen?"):
-    st.markdown("""
-**Bot Endwert**  
-Endwert des aktiven Portfolios.
-
-**Buy & Hold Endwert**  
-Endwert eines passiven Vergleichsportfolios mit denselben Assets.
-
-**Outperformance**  
-Differenz der Gesamtrendite in Prozentpunkten. Positiv = Bot schlägt Buy & Hold.
-
-**Exposure**  
-Wie viel Prozent des Portfolios im Durchschnitt investiert waren.
-
-**Ø Cash-Quote**  
-Durchschnittlicher Cash-Anteil.
-
-**CAGR**  
-Jährliche durchschnittliche Wachstumsrate.
-
-**Max Drawdown**  
-Größter historischer Rückgang vom Hochpunkt.
-
-**Volatilität**  
-Schwankungsintensität des Portfolios.
-
-**Sharpe Ratio**  
-Rendite im Verhältnis zur Schwankung. Höher ist meist besser.
-""")
-
-with st.expander("⚙️ Empfohlene Start-Setups"):
-    st.markdown("""
-**Quality / Direktaktien-Korb**
-- AAPL
-- SAP.DE
-- SIE.DE
-- ALV.DE
-- MUV2.DE
-- JNJ
-- PG
-
-Empfehlung:
-- Top-N: 4
-- Rebalancing: Monatlich
-- Max Gewicht: 55
-- Conviction-Stärke: 2.0
-- Volatilitätsstrafe: 0.08
-
-**Großer globaler Korb**
-- ETFs, Tech, Europa, Dividenden gemischt
-
-Empfehlung:
-- Top-N: 5 bis 6
-- Rebalancing: Monatlich
-- Max Gewicht: 55
-- Conviction-Stärke: 2.0 bis 2.5
-
-**Europa / Deutschland**
-- SAP.DE
-- SIE.DE
-- AIR.DE
-- ALV.DE
-- MUV2.DE
-- BMW.DE
-- RWE.DE
-- DTE.DE
-
-Empfehlung:
-- Top-N: 5
-- Rebalancing: Monatlich oder Quartalsweise
-- Cashbereich: 8 bis 18
-""")
+with st.expander(T["preset_expander"]):
+    st.markdown(T["preset_text"])
 
 # =========================
 # Main
 # =========================
-if st.sidebar.button("Portfolio berechnen", type="primary"):
-    with st.spinner("Berechne aggressives dynamisches Portfolio..."):
+if st.sidebar.button(T["calculate"], type="primary"):
+    with st.spinner(T["spinner"]):
         tickers = [x.strip() for x in assets_input.splitlines() if x.strip()]
 
         if len(tickers) < 2:
-            st.error("Bitte mindestens 2 Ticker eingeben.")
+            st.error(T["error_min_assets"])
             st.stop()
 
         series_map, skipped_tickers = load_close_prices(tickers, period)
 
         for skipped in skipped_tickers:
-            st.warning(f"Keine Daten für {skipped} – wird übersprungen.")
+            st.warning(T["warning_skip"].format(ticker=skipped))
 
         prices = align_price_series(series_map)
 
         if prices.empty:
-            st.error("Es konnten keine gültigen Kursdaten geladen werden.")
+            st.error(T["error_no_data"])
             st.stop()
 
         tickers = list(prices.columns)
 
         if len(tickers) < 2:
-            st.error("Nach dem Laden sind weniger als 2 gültige Assets übrig.")
+            st.error(T["error_less_than_2"])
             st.stop()
 
         effective_top_n = min(top_n, len(tickers))
@@ -733,14 +1120,14 @@ if st.sidebar.button("Portfolio berechnen", type="primary"):
         raw_score = raw_score.loc[valid_mask].copy()
 
         if len(prices) < 30:
-            st.error("Zu wenig gültige Daten nach Berechnung der Indikatoren.")
+            st.error(T["error_too_few_rows"])
             st.stop()
 
         regime_ok_series = pd.Series(True, index=prices.index)
         if use_regime_filter:
             spy_close = load_single_close("SPY", period)
             if spy_close.empty:
-                st.warning("SPY-Daten konnten nicht geladen werden. Regime-Filter wird deaktiviert.")
+                st.warning(T["warning_spy"])
             else:
                 spy_close = spy_close.reindex(prices.index).ffill()
                 spy_sma200 = spy_close.rolling(200).mean()
@@ -808,7 +1195,9 @@ if st.sidebar.button("Portfolio berechnen", type="primary"):
                         for t in weights.index:
                             target_values[t] = investable_capital * weights[t]
 
-                        target_weights_log[date] = {t: (target_values[t] / total_equity_before) for t in weights.index}
+                        target_weights_log[date] = {
+                            t: (target_values[t] / total_equity_before) for t in weights.index
+                        }
                         selected_assets_log[date] = selected.index.tolist()
 
                     else:
@@ -886,13 +1275,13 @@ if st.sidebar.button("Portfolio berechnen", type="primary"):
                 cash = total_equity_after_fees - invested_value
 
                 rebalance_log.append({
-                    "Datum": date,
-                    "Regime OK": regime_today_ok,
-                    "Ausgewählte Assets": ", ".join(selected_assets_log.get(date, [])) if selected_assets_log.get(date, []) else "Cash",
-                    "Turnover €": float(turnover),
-                    "Gebühren €": float(fees),
-                    "Cash €": float(cash),
-                    "Portfolio €": float(total_equity_after_fees),
+                    T["date_col"]: date,
+                    T["regime_ok_col"]: regime_today_ok,
+                    T["selected_assets_col"]: ", ".join(selected_assets_log.get(date, [])) if selected_assets_log.get(date, []) else "Cash",
+                    T["turnover_col"]: float(turnover),
+                    T["fees_col"]: float(fees),
+                    T["cash_eur_col"]: float(cash),
+                    T["portfolio_eur_col"]: float(total_equity_after_fees),
                 })
 
             invested_value = sum(shares[t] * current_prices[t] for t in tickers)
@@ -948,9 +1337,9 @@ if st.sidebar.button("Portfolio berechnen", type="primary"):
             current_weights[t] = (shares[t] * last_prices[t] / final_equity) * 100 if final_equity > 0 else 0.0
 
         weights_df = pd.DataFrame({
-            "Ticker": list(current_weights.keys()),
-            "Aktuelles Gewicht %": list(current_weights.values())
-        }).sort_values("Aktuelles Gewicht %", ascending=False)
+            T["weights_ticker_col"]: list(current_weights.keys()),
+            T["weights_current_col"]: list(current_weights.values())
+        }).sort_values(T["weights_current_col"], ascending=False)
 
         rebalance_df = pd.DataFrame(rebalance_log)
 
@@ -958,83 +1347,87 @@ if st.sidebar.button("Portfolio berechnen", type="primary"):
         weights_with_cash["Cash"] = cash_weight_history
         weights_with_cash = weights_with_cash.fillna(0)
 
-        weights_chart_df = simplify_weight_chart(weights_with_cash, top_k=weight_chart_top_n)
+        weights_chart_df = simplify_weight_chart(
+            weights_with_cash,
+            top_k=weight_chart_top_n,
+            other_label=T["other_label"]
+        )
 
-        rebalance_dates = [entry["Datum"] for entry in rebalance_log]
+        rebalance_dates = [entry[T["date_col"]] for entry in rebalance_log]
         weights_rebalance_only = weights_with_cash.loc[
             weights_with_cash.index.intersection(rebalance_dates)
         ].copy()
 
-        # Hinweise
+        # Status messages
         if outperformance_pp > 0:
-            st.success("✅ Der Bot schlägt Buy & Hold in diesem Test.")
+            st.success(T["status_success"])
         elif outperformance_pp > -10:
-            st.info("ℹ️ Der Bot liegt nahe an Buy & Hold. Für eine aktive aggressive Strategie ist das bereits ordentlich.")
+            st.info(T["status_neutral"])
         else:
-            st.warning("⚠️ Der Bot liegt klar hinter Buy & Hold. Prüfe besonders Cash-Quote, Top-N, Conviction-Stärke und Rebalancing.")
+            st.warning(T["status_bad"])
 
         if avg_cash_quote > 15:
-            st.info("💡 Die durchschnittliche Cash-Quote liegt über 15 %. Für einen aggressiven Modus könntest du Soft Cash Mode, niedrigeren Mindest-Score oder höheres Max-Gewicht testen.")
+            st.info(T["cash_high"])
         elif avg_cash_quote < 5:
-            st.info("💡 Die durchschnittliche Cash-Quote liegt unter 5 %. Das ist offensiv, kann aber Drawdowns erhöhen.")
+            st.info(T["cash_low"])
 
         # Metrics
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Bot Endwert", f"{equity_bot.iloc[-1]:,.2f} €")
-        c2.metric("Buy & Hold Endwert", f"{equity_bh.iloc[-1]:,.2f} €")
-        c3.metric("Outperformance", f"{outperformance_pp:.2f} pp")
-        c4.metric("Trades", f"{trade_count}")
+        c1.metric(T["metric_bot_end"], f"{equity_bot.iloc[-1]:,.2f} €")
+        c2.metric(T["metric_bh_end"], f"{equity_bh.iloc[-1]:,.2f} €")
+        c3.metric(T["metric_outperf"], f"{outperformance_pp:.2f} pp")
+        c4.metric(T["metric_trades"], f"{trade_count}")
 
         c5, c6, c7, c8 = st.columns(4)
-        c5.metric("Bot Rendite", f"{bot_metrics['total_return']:.2f}%")
-        c6.metric("Buy & Hold Rendite", f"{bh_metrics['total_return']:.2f}%")
-        c7.metric("Exposure", f"{exposure:.1f}%")
-        c8.metric("Ø Cash-Quote", f"{avg_cash_quote:.1f}%")
+        c5.metric(T["metric_bot_return"], f"{bot_metrics['total_return']:.2f}%")
+        c6.metric(T["metric_bh_return"], f"{bh_metrics['total_return']:.2f}%")
+        c7.metric(T["metric_exposure"], f"{exposure:.1f}%")
+        c8.metric(T["metric_cash"], f"{avg_cash_quote:.1f}%")
 
         c9, c10, c11, c12 = st.columns(4)
-        c9.metric("Bot CAGR", f"{bot_metrics['cagr']:.2f}%")
-        c10.metric("Bot Max Drawdown", f"{bot_metrics['max_dd']:.2f}%")
-        c11.metric("Bot Volatilität", f"{bot_metrics['volatility']:.2f}%")
-        c12.metric("Bot Sharpe", f"{bot_metrics['sharpe']:.2f}")
+        c9.metric(T["metric_cagr"], f"{bot_metrics['cagr']:.2f}%")
+        c10.metric(T["metric_dd"], f"{bot_metrics['max_dd']:.2f}%")
+        c11.metric(T["metric_vol"], f"{bot_metrics['volatility']:.2f}%")
+        c12.metric(T["metric_sharpe"], f"{bot_metrics['sharpe']:.2f}")
 
-        st.success(f"Endkapital dynamischer Bot: {equity_bot.iloc[-1]:,.2f} €")
+        st.success(T["end_capital_success"].format(value=f"{equity_bot.iloc[-1]:,.2f} €"))
 
-        # Equity Chart
+        # Equity chart
         fig, ax = plt.subplots(figsize=(12, 6))
-        ax.plot(equity_bot.index, equity_bot, label="Dynamischer Bot", linewidth=2.5, color="lime")
-        ax.plot(equity_bh.index, equity_bh, label="Buy & Hold", linewidth=2, color="gray")
-        ax.set_title("Dynamischer Portfolio Bot vs Buy & Hold")
+        ax.plot(equity_bot.index, equity_bot, label=T["equity_label_bot"], linewidth=2.5, color="lime")
+        ax.plot(equity_bh.index, equity_bh, label=T["equity_label_bh"], linewidth=2, color="gray")
+        ax.set_title(T["equity_title"])
         ax.legend()
         ax.grid(True)
         st.pyplot(fig)
 
         # Export
-        st.markdown("### Export")
-        st.caption("Lade Equity-Verlauf, Rebalancing-Log oder Gewichtshistorie als CSV herunter.")
+        st.markdown(f"### {T['export_title']}")
+        st.caption(T["export_caption"])
 
         export_equity_df = pd.DataFrame({
-            "Datum": equity_bot.index,
-            "Bot Portfolio": equity_bot.values,
-            "Buy & Hold": equity_bh.values,
-            "Cash (€)": cash_bot.values,
-            "Investiert (€)": invested_bot.values
+            T["date_col"]: equity_bot.index,
+            T["bot_portfolio_label"]: equity_bot.values,
+            T["buy_hold_label"]: equity_bh.values,
+            T["bh_cash_label"]: cash_bot.values,
+            T["invested_label"]: invested_bot.values
         })
 
         equity_csv = make_export_csv(export_equity_df)
         rebal_csv = make_export_csv(rebalance_df) if not rebalance_df.empty else b""
-        weights_csv = make_export_csv(weights_with_cash.reset_index().rename(columns={"index": "Datum"}))
+        weights_csv = make_export_csv(weights_with_cash.reset_index().rename(columns={"index": T["date_col"]}))
 
         col_exp1, col_exp2, col_exp3 = st.columns(3)
 
         col_exp1.download_button(
-            label="⬇️ Equity Curve CSV",
+            label=T["export_equity"],
             data=equity_csv,
             file_name="allocato_equity_curve.csv",
             mime="text/csv"
         )
 
         col_exp2.download_button(
-            label="⬇️ Rebalancing Log CSV",
+            label=T["export_rebal"],
             data=rebal_csv,
             file_name="allocato_rebalancing_log.csv",
             mime="text/csv",
@@ -1042,47 +1435,40 @@ if st.sidebar.button("Portfolio berechnen", type="primary"):
         )
 
         col_exp3.download_button(
-            label="⬇️ Gewichte CSV",
+            label=T["export_weights"],
             data=weights_csv,
             file_name="allocato_weight_history.csv",
             mime="text/csv"
         )
 
-        with st.expander("📌 Interpretation dieses Ergebnisses"):
-            st.markdown(f"""
-**Zusammenfassung dieses Testlaufs**
+        with st.expander(T["interpret_expander"]):
+            st.markdown(
+                T["interpret_text"].format(
+                    outperformance=outperformance_pp,
+                    exposure=exposure,
+                    cash=avg_cash_quote,
+                    trades=trade_count,
+                    conviction=conviction_power,
+                    soft_cash=T["soft_cash_on"] if soft_cash_mode else T["soft_cash_off"],
+                    cash_floor=target_cash_floor_pct,
+                    cash_ceiling=target_cash_ceiling_pct,
+                )
+            )
 
-- **Outperformance:** {outperformance_pp:.2f} Prozentpunkte
-- **Exposure:** {exposure:.1f} %
-- **Ø Cash-Quote:** {avg_cash_quote:.1f} %
-- **Trades:** {trade_count}
-- **Conviction-Stärke:** {conviction_power:.1f}
-- **Soft Cash Mode:** {"Aktiv" if soft_cash_mode else "Aus"}
-- **Ziel-Cashbereich:** {target_cash_floor_pct}% bis {target_cash_ceiling_pct}%
+        st.subheader(T["current_weights"])
 
-**Interpretation**
-- Höhere Conviction-Stärke konzentriert das Kapital stärker auf Gewinner.
-- Eine Cash-Quote zwischen 5% und 15% ist hier das Zielbild.
-- Ist die Trade-Zahl sehr hoch, kann der Bot zu nervös sein.
-- Ist die Cash-Quote zu hoch, wird in starken Bullenphasen oft Rendite liegen gelassen.
-- Ein geringerer Max Drawdown kann den Bot trotz geringerer Rendite strategisch interessant machen.
-""")
-
-        st.subheader("Aktuelle Portfolio-Gewichte")
-
-        active_weights_df = weights_df[weights_df["Aktuelles Gewicht %"] > 0].copy()
-        inactive_weights_df = weights_df[weights_df["Aktuelles Gewicht %"] <= 0].copy()
+        active_weights_df = weights_df[weights_df[T["weights_current_col"]] > 0].copy()
 
         if not active_weights_df.empty:
             st.dataframe(active_weights_df.round(2), use_container_width=True)
         else:
-            st.info("Aktuell sind keine aktiven Positionen im Portfolio.")
+            st.info(T["active_positions_empty"])
 
-        with st.expander("Alle Assets inkl. 0%-Gewicht anzeigen"):
+        with st.expander(T["show_all_assets"]):
             st.dataframe(weights_df.round(2), use_container_width=True)
 
-        st.subheader("Gewichtungsverlauf im Portfolio")
-        st.caption("Angezeigt werden die größten durchschnittlichen Positionen sowie 'Sonstige' und Cash.")
+        st.subheader(T["weights_chart_title"])
+        st.caption(T["weights_chart_caption"])
 
         chart_cols = list(weights_chart_df.columns)
         base_colors = list(plt.cm.tab20.colors)
@@ -1092,7 +1478,7 @@ if st.sidebar.button("Portfolio berechnen", type="primary"):
         for col in chart_cols:
             if col == "Cash":
                 colors.append((0.50, 0.50, 0.50))
-            elif col == "Sonstige":
+            elif col == T["other_label"]:
                 colors.append((0.80, 0.80, 0.80))
             else:
                 colors.append(base_colors[normal_idx % len(base_colors)])
@@ -1106,61 +1492,61 @@ if st.sidebar.button("Portfolio berechnen", type="primary"):
             colors=colors,
             alpha=0.95
         )
-        ax2.set_title("Portfolio-Gewichte über die Zeit")
-        ax2.set_ylabel("Gewicht in %")
+        ax2.set_title(T["weights_chart_inner_title"])
+        ax2.set_ylabel(T["weights_chart_ylabel"])
         ax2.set_ylim(0, 100)
         ax2.legend(loc="upper left", bbox_to_anchor=(1.01, 1))
         ax2.grid(True, alpha=0.25)
         st.pyplot(fig2)
 
-        with st.expander("🎯 Zuletzt ausgewählte Top-Assets"):
+        with st.expander(T["latest_selection"]):
             if selected_assets_log:
                 last_selection_date = max(selected_assets_log.keys())
-                st.write(f"Letzte Auswahl am {last_selection_date.date()}:")
+                st.write(T["last_selection_date"].format(date=last_selection_date.date()))
                 st.write(selected_assets_log[last_selection_date])
 
-                st.write("Letzte Zielgewichte:")
+                st.write(T["last_target_weights"])
                 last_weights = target_weights_log.get(last_selection_date, {})
                 if last_weights:
                     last_weights_df = pd.DataFrame({
-                        "Ticker": list(last_weights.keys()),
-                        "Zielgewicht %": [v * 100 for v in last_weights.values()]
-                    }).sort_values("Zielgewicht %", ascending=False)
+                        T["weights_ticker_col"]: list(last_weights.keys()),
+                        T["weights_target_col"]: [v * 100 for v in last_weights.values()]
+                    }).sort_values(T["weights_target_col"], ascending=False)
                     st.dataframe(last_weights_df.round(2), use_container_width=True)
                 else:
-                    st.write("Keine Positionen ausgewählt.")
+                    st.write(T["no_positions_selected"])
             else:
-                st.write("Noch keine Auswahl vorhanden.")
+                st.write(T["no_selection_yet"])
 
-        with st.expander("📊 Gewichtungsverlauf als Tabelle"):
+        with st.expander(T["weights_table"]):
             st.dataframe(weights_with_cash.round(2), use_container_width=True)
 
-        with st.expander("🔁 Gewichte an den Rebalancing-Zeitpunkten"):
+        with st.expander(T["weights_rebalance"]):
             if not weights_rebalance_only.empty:
                 st.dataframe(weights_rebalance_only.round(2), use_container_width=True)
             else:
-                st.write("Keine Rebalancing-Zeitpunkte vorhanden.")
+                st.write(T["weights_rebalance_empty"])
 
-        with st.expander("📒 Rebalancing-Log"):
+        with st.expander(T["rebal_log"]):
             if not rebalance_df.empty:
                 st.dataframe(rebalance_df.round(2), use_container_width=True)
             else:
-                st.write("Noch kein Rebalancing geloggt.")
+                st.write(T["rebal_log_empty"])
 
         if show_debug:
-            with st.expander("🛠 Debug / Daten prüfen"):
-                st.write("Verwendete Ticker:", tickers)
-                st.write("Übersprungene Ticker:", skipped_tickers)
-                st.write("Top-N gewählt:", top_n)
-                st.write("Top-N effektiv:", effective_top_n)
-                st.write("Max. Gewicht je Asset (%):", max_weight_pct)
-                st.write("Conviction-Stärke:", conviction_power)
-                st.write("Soft Cash Mode:", soft_cash_mode)
-                st.write("Regime-Filter aktiv:", use_regime_filter)
-                st.write("Letzte Preise:")
+            with st.expander(T["debug_expander"]):
+                st.write(T["debug_used_tickers"], tickers)
+                st.write(T["debug_skipped"], skipped_tickers)
+                st.write(T["debug_top_n"], top_n)
+                st.write(T["debug_top_n_effective"], effective_top_n)
+                st.write(T["debug_max_weight"], max_weight_pct)
+                st.write(T["debug_conviction"], conviction_power)
+                st.write(T["debug_soft_cash"], soft_cash_mode)
+                st.write(T["debug_regime"], use_regime_filter)
+                st.write(T["debug_last_prices"])
                 st.dataframe(prices.tail(), use_container_width=True)
-                st.write("Letzte Scores:")
+                st.write(T["debug_last_scores"])
                 st.dataframe(raw_score.tail(), use_container_width=True)
 
 else:
-    st.info("👈 Wähle ein Setup oder gib deinen Asset-Korb ein und klicke auf 'Portfolio berechnen'.")
+    st.info(T["info_start"])
