@@ -298,12 +298,25 @@ if "new_basket_name" not in st.session_state:
 if "rename_basket_name" not in st.session_state:
     st.session_state.rename_basket_name = ""
 
-# FIX: sicherer Wechsel des aktiven Korbs
-if "_new_active_basket" in st.session_state:
-    st.session_state.active_basket = st.session_state["_new_active_basket"]
-    st.session_state.last_loaded_basket = st.session_state["_new_active_basket"]
-    del st.session_state["_new_active_basket"]
+# Sichere Widget-/Sidebar-Helferzustände für Korb-Aktionen
+if "new_basket_name_input" not in st.session_state:
+    st.session_state.new_basket_name_input = ""
 
+if "rename_basket_name_input" not in st.session_state:
+    st.session_state.rename_basket_name_input = ""
+
+if "_pending_active_basket" in st.session_state:
+    st.session_state.active_basket = st.session_state["_pending_active_basket"]
+    st.session_state.last_loaded_basket = st.session_state["_pending_active_basket"]
+    del st.session_state["_pending_active_basket"]
+
+if "_clear_new_basket_name_input" in st.session_state:
+    st.session_state.new_basket_name_input = ""
+    del st.session_state["_clear_new_basket_name_input"]
+
+if "_clear_rename_basket_name_input" in st.session_state:
+    st.session_state.rename_basket_name_input = ""
+    del st.session_state["_clear_rename_basket_name_input"]
 
 
 PERSISTENT_STATE_KEYS = [
@@ -1519,10 +1532,10 @@ st.sidebar.selectbox(
 sync_active_basket_from_state()
 
 if tier != "Free":
-    st.sidebar.text_input(T["basket_new_name"], key="new_basket_name")
+    st.sidebar.text_input(T["basket_new_name"], key="new_basket_name_input")
 
     if st.sidebar.button(T["basket_add"], use_container_width=True):
-        name = st.session_state.new_basket_name.strip()
+        name = st.session_state.get("new_basket_name_input", "").strip()
         if not name:
             st.sidebar.error(T["basket_name_empty"])
         elif name in st.session_state.baskets:
@@ -1532,15 +1545,13 @@ if tier != "Free":
         else:
             save_active_basket_to_state()
             st.session_state.baskets[name] = defaults["assets_input"]
-            st.session_state["_new_active_basket"] = name
-            st.session_state.assets_input = defaults["assets_input"]
-            st.session_state.last_loaded_basket = name
-            st.session_state.new_basket_name = ""
+            st.session_state["_pending_active_basket"] = name
+            st.session_state["_clear_new_basket_name_input"] = True
             save_logged_in_user_state()
             st.sidebar.success(T["basket_created"].format(name=name))
             st.rerun()
 
-    rename_name = st.sidebar.text_input(T["basket_rename_name"], key="rename_basket_name")
+    rename_name = st.sidebar.text_input(T["basket_rename_name"], key="rename_basket_name_input")
 
     if st.sidebar.button(T["basket_rename"], use_container_width=True):
         old_name = st.session_state.active_basket
@@ -1552,9 +1563,8 @@ if tier != "Free":
         else:
             save_active_basket_to_state()
             st.session_state.baskets[new_name] = st.session_state.baskets.pop(old_name)
-            st.session_state.active_basket = new_name
-            st.session_state.last_loaded_basket = new_name
-            st.session_state.rename_basket_name = ""
+            st.session_state["_pending_active_basket"] = new_name
+            st.session_state["_clear_rename_basket_name_input"] = True
             save_logged_in_user_state()
             st.sidebar.success(T["basket_renamed"].format(name=new_name))
             st.rerun()
@@ -1566,9 +1576,7 @@ if tier != "Free":
             current = st.session_state.active_basket
             st.session_state.baskets.pop(current, None)
             new_active = list(st.session_state.baskets.keys())[0]
-            st.session_state.active_basket = new_active
-            st.session_state.assets_input = st.session_state.baskets[new_active]
-            st.session_state.last_loaded_basket = new_active
+            st.session_state["_pending_active_basket"] = new_active
             save_logged_in_user_state()
             st.sidebar.success(T["basket_deleted"].format(name=current))
             st.rerun()
