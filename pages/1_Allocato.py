@@ -1,8 +1,8 @@
 import json
+import os
 import hmac
 import hashlib
 import re
-import sqlite3
 from datetime import datetime
 from pathlib import Path
 
@@ -11,6 +11,7 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from supabase import Client, create_client
 
 st.set_page_config(page_title="Allocato", layout="wide")
 
@@ -25,10 +26,25 @@ STRIPE_LIFETIME = "https://buy.stripe.com/8x2dR37H21WI4sV3gGfjG00"
 # User / Auth System
 # =========================
 APP_ROOT = Path(__file__).resolve().parent.parent if "__file__" in globals() else Path.cwd()
-DB_PATH = APP_ROOT / "allocato_users.db"
 USER_STATE_VERSION = 1
 TIERS = ["Free", "Basic", "Pro", "Lifetime"]
 TIER_ICONS = {"Free": "🆓", "Basic": "📘", "Pro": "🚀", "Lifetime": "💎"}
+
+def read_secret(name: str, default: str = "") -> str:
+    try:
+        return st.secrets.get(name, os.getenv(name, default))
+    except Exception:
+        return os.getenv(name, default)
+
+SUPABASE_URL = read_secret("SUPABASE_URL", "")
+SUPABASE_ANON_KEY = read_secret("SUPABASE_ANON_KEY", "")
+SUPABASE_SETUP_WARNING = "Bitte SUPABASE_URL und SUPABASE_ANON_KEY in Streamlit Cloud → App Settings → Secrets setzen."
+
+@st.cache_resource
+def get_supabase_client() -> Client | None:
+    if not SUPABASE_URL or not SUPABASE_ANON_KEY:
+        return None
+    return create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 # Für Testing kannst du hier Admin-E-Mails hinterlegen.
 ADMIN_EMAILS = {
@@ -42,7 +58,7 @@ ADMIN_EMAILS = {
 #     "zweite@email.de": "Lifetime",
 # }
 TEST_ACCOUNT_TIER_OVERRIDES = {
-    "kev_cone@web.de": "Pro",
+    # "deine@email.de": "Pro",
 }
 
 ALLOW_ADMIN_TIER_OVERRIDE = True
@@ -93,38 +109,22 @@ def verify_password(password: str, stored_value: str) -> bool:
     except Exception:
         return False
 
-def get_db_connection():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-def init_user_db():
-    with get_db_connection() as conn:
-        conn.execute(
-            '''
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                email TEXT NOT NULL UNIQUE,
-                password_hash TEXT NOT NULL,
-                subscription_tier TEXT NOT NULL DEFAULT 'Free',
-                state_json TEXT,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
-            )
-            '''
-        )
-        conn.commit()
-
 def get_user_row(email: str):
+    client = get_supabase_client()
+    if client is None:
+        return None
     normalized = normalize_email(email)
-    with get_db_connection() as conn:
-        row = conn.execute(
-            "SELECT email, password_hash, subscription_tier, state_json, created_at, updated_at FROM users WHERE email = ?",
-            (normalized,),
-        ).fetchone()
-    return row
+    try:
+        response = client.table("users").select("*").eq("email", normalized).limit(1).execute()
+        data = response.data or []
+        return data[0] if data else None
+    except Exception:
+        return None
 
 def create_user(email: str, password: str) -> tuple[bool, str]:
+    client = get_supabase_client()
+    if client is None:
+        return False, SUPABASE_SETUP_WARNING
     normalized = normalize_email(email)
     if not is_valid_email(normalized):
         return False, "Bitte eine gültige E-Mail-Adresse eingeben."
@@ -133,31 +133,39 @@ def create_user(email: str, password: str) -> tuple[bool, str]:
     if get_user_row(normalized):
         return False, "Diese E-Mail ist bereits registriert."
     now = datetime.utcnow().isoformat()
-    initial_state = json.dumps({}, ensure_ascii=False)
-    with get_db_connection() as conn:
-        conn.execute(
-            '''
-            INSERT INTO users (email, password_hash, subscription_tier, state_json, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ''',
-            (normalized, hash_password(password), "Free", initial_state, now, now),
-        )
-        conn.commit()
-    return True, "Registrierung erfolgreich. Du kannst dich jetzt einloggen."
+    payload = {
+        "email": normalized,
+        "password_hash": hash_password(password),
+        "subscription_tier": "Free",
+        "state_json": {},
+        "created_at": now,
+        "updated_at": now,
+    }
+    try:
+        client.table("users").insert(payload).execute()
+        return True, "Registrierung erfolgreich. Du kannst dich jetzt einloggen."
+    except Exception as exc:
+        return False, f"Registrierung fehlgeschlagen: {exc}"
 
 def update_user_tier(email: str, new_tier: str):
+    client = get_supabase_client()
+    if client is None:
+        return
     normalized = normalize_email(email)
     if new_tier not in TIERS:
         return
     now = datetime.utcnow().isoformat()
-    with get_db_connection() as conn:
-        conn.execute(
-            "UPDATE users SET subscription_tier = ?, updated_at = ? WHERE email = ?",
-            (new_tier, now, normalized),
-        )
-        conn.commit()
+    try:
+        client.table("users").update(
+            {"subscription_tier": new_tier, "updated_at": now}
+        ).eq("email", normalized).execute()
+    except Exception:
+        return
 
 def login_user(email: str, password: str) -> tuple[bool, str]:
+    client = get_supabase_client()
+    if client is None:
+        return False, SUPABASE_SETUP_WARNING
     normalized = normalize_email(email)
     row = get_user_row(normalized)
     if row is None:
@@ -167,7 +175,7 @@ def login_user(email: str, password: str) -> tuple[bool, str]:
     st.session_state["auth_logged_in"] = True
     st.session_state["auth_user_email"] = normalized
     st.session_state["auth_is_admin"] = normalized in ADMIN_EMAILS
-    st.session_state["subscription_tier"] = resolve_effective_tier(normalized, row["subscription_tier"])
+    st.session_state["subscription_tier"] = resolve_effective_tier(normalized, row.get("subscription_tier"))
     st.session_state["auth_loaded_for"] = ""
     return True, "Erfolgreich eingeloggt."
 
@@ -225,7 +233,6 @@ def get_auth_texts(lang: str) -> dict:
     }
 
 ensure_auth_session_state()
-init_user_db()
 
 
 # =========================
@@ -298,26 +305,6 @@ if "new_basket_name" not in st.session_state:
 if "rename_basket_name" not in st.session_state:
     st.session_state.rename_basket_name = ""
 
-# Sichere Widget-/Sidebar-Helferzustände für Korb-Aktionen
-if "new_basket_name_input" not in st.session_state:
-    st.session_state.new_basket_name_input = ""
-
-if "rename_basket_name_input" not in st.session_state:
-    st.session_state.rename_basket_name_input = ""
-
-if "_pending_active_basket" in st.session_state:
-    st.session_state.active_basket = st.session_state["_pending_active_basket"]
-    st.session_state.last_loaded_basket = st.session_state["_pending_active_basket"]
-    del st.session_state["_pending_active_basket"]
-
-if "_clear_new_basket_name_input" in st.session_state:
-    st.session_state.new_basket_name_input = ""
-    del st.session_state["_clear_new_basket_name_input"]
-
-if "_clear_rename_basket_name_input" in st.session_state:
-    st.session_state.rename_basket_name_input = ""
-    del st.session_state["_clear_rename_basket_name_input"]
-
 
 PERSISTENT_STATE_KEYS = [
     "language",
@@ -371,34 +358,34 @@ def load_logged_in_user_state():
     if row is None:
         logout_user()
         return
-    st.session_state["subscription_tier"] = resolve_effective_tier(email, row["subscription_tier"])
+    st.session_state["subscription_tier"] = resolve_effective_tier(email, row.get("subscription_tier"))
     st.session_state["auth_is_admin"] = email in ADMIN_EMAILS
-    payload = {}
-    if row["state_json"]:
+    payload = row.get("state_json") or {}
+    if isinstance(payload, str):
         try:
-            payload = json.loads(row["state_json"])
+            payload = json.loads(payload)
         except Exception:
             payload = {}
     apply_user_state_payload(payload)
     st.session_state["auth_loaded_for"] = email
 
 def save_logged_in_user_state():
+    client = get_supabase_client()
+    if client is None:
+        return
     if not st.session_state.get("auth_logged_in") or not st.session_state.get("auth_user_email"):
         return
     email = normalize_email(st.session_state["auth_user_email"])
-    payload_json = json.dumps(build_user_state_payload(), ensure_ascii=False)
     now = datetime.utcnow().isoformat()
-    with get_db_connection() as conn:
-        conn.execute(
-            "UPDATE users SET subscription_tier = ?, state_json = ?, updated_at = ? WHERE email = ?",
-            (
-                st.session_state.get("subscription_tier", "Free"),
-                payload_json,
-                now,
-                email,
-            ),
-        )
-        conn.commit()
+    payload = {
+        "subscription_tier": st.session_state.get("subscription_tier", "Free"),
+        "state_json": build_user_state_payload(),
+        "updated_at": now,
+    }
+    try:
+        client.table("users").update(payload).eq("email", email).execute()
+    except Exception:
+        return
 
 def enforce_plan_limits():
     tier_now = st.session_state.get("subscription_tier", "Free")
@@ -1443,6 +1430,9 @@ AUTH_T = get_auth_texts(lang)
 
 st.sidebar.header(AUTH_T["account_header"])
 
+if not SUPABASE_URL or not SUPABASE_ANON_KEY:
+    st.sidebar.warning(SUPABASE_SETUP_WARNING)
+
 if st.session_state.get("auth_logged_in"):
     st.sidebar.success(f'{AUTH_T["logged_in_as"]}: {st.session_state["auth_user_email"]}')
     st.sidebar.caption(AUTH_T["plan_note"])
@@ -1484,10 +1474,10 @@ else:
 
 st.sidebar.header(T["subscription_header"])
 tier = get_current_tier()
-stored_tier = st.session_state.get("subscription_tier", "Free")
+st.session_state["subscription_tier"] = tier
 st.sidebar.markdown(f'**{AUTH_T["current_plan"]}:** {TIER_ICONS.get(tier, "🔑")} {tier}')
-override_tier = get_test_override_tier(st.session_state.get("auth_user_email", ""))
-if override_tier and st.session_state.get("auth_logged_in"):
+override_tier = get_test_override_tier(st.session_state.get("auth_user_email", "")) if st.session_state.get("auth_logged_in") else None
+if override_tier:
     st.sidebar.caption(f"🧪 Test-Override aktiv: {override_tier} für {st.session_state.get('auth_user_email', '')}")
 
 if tier == "Free":
@@ -1503,6 +1493,7 @@ else:
     st.sidebar.success(T["lifetime_active"])
 
 st.sidebar.caption(AUTH_T["stripe_note"])
+st.sidebar.info("Für die automatische Freischaltung bitte beim Kauf dieselbe E-Mail wie im Login verwenden.")
 
 if st.session_state.get("auth_logged_in") and st.session_state.get("auth_is_admin") and ALLOW_ADMIN_TIER_OVERRIDE:
     st.sidebar.subheader(AUTH_T["admin_plan"])
@@ -1532,10 +1523,10 @@ st.sidebar.selectbox(
 sync_active_basket_from_state()
 
 if tier != "Free":
-    st.sidebar.text_input(T["basket_new_name"], key="new_basket_name_input")
+    st.sidebar.text_input(T["basket_new_name"], key="new_basket_name")
 
     if st.sidebar.button(T["basket_add"], use_container_width=True):
-        name = st.session_state.get("new_basket_name_input", "").strip()
+        name = st.session_state.new_basket_name.strip()
         if not name:
             st.sidebar.error(T["basket_name_empty"])
         elif name in st.session_state.baskets:
@@ -1545,13 +1536,15 @@ if tier != "Free":
         else:
             save_active_basket_to_state()
             st.session_state.baskets[name] = defaults["assets_input"]
-            st.session_state["_pending_active_basket"] = name
-            st.session_state["_clear_new_basket_name_input"] = True
+            st.session_state.active_basket = name
+            st.session_state.assets_input = defaults["assets_input"]
+            st.session_state.last_loaded_basket = name
+            st.session_state.new_basket_name = ""
             save_logged_in_user_state()
             st.sidebar.success(T["basket_created"].format(name=name))
             st.rerun()
 
-    rename_name = st.sidebar.text_input(T["basket_rename_name"], key="rename_basket_name_input")
+    rename_name = st.sidebar.text_input(T["basket_rename_name"], key="rename_basket_name")
 
     if st.sidebar.button(T["basket_rename"], use_container_width=True):
         old_name = st.session_state.active_basket
@@ -1563,8 +1556,9 @@ if tier != "Free":
         else:
             save_active_basket_to_state()
             st.session_state.baskets[new_name] = st.session_state.baskets.pop(old_name)
-            st.session_state["_pending_active_basket"] = new_name
-            st.session_state["_clear_rename_basket_name_input"] = True
+            st.session_state.active_basket = new_name
+            st.session_state.last_loaded_basket = new_name
+            st.session_state.rename_basket_name = ""
             save_logged_in_user_state()
             st.sidebar.success(T["basket_renamed"].format(name=new_name))
             st.rerun()
@@ -1576,7 +1570,9 @@ if tier != "Free":
             current = st.session_state.active_basket
             st.session_state.baskets.pop(current, None)
             new_active = list(st.session_state.baskets.keys())[0]
-            st.session_state["_pending_active_basket"] = new_active
+            st.session_state.active_basket = new_active
+            st.session_state.assets_input = st.session_state.baskets[new_active]
+            st.session_state.last_loaded_basket = new_active
             save_logged_in_user_state()
             st.sidebar.success(T["basket_deleted"].format(name=current))
             st.rerun()
@@ -2338,5 +2334,5 @@ if st.sidebar.button(T["calculate"], type="primary"):
 
 else:
     st.info(T["info_start"])
-    if get_current_tier() == "Free":
+    if st.session_state.get("subscription_tier", "Free") == "Free":
         st.caption(T["footer_free"])
