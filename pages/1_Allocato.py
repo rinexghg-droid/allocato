@@ -34,6 +34,17 @@ TIER_ICONS = {"Free": "🆓", "Basic": "📘", "Pro": "🚀", "Lifetime": "💎"
 ADMIN_EMAILS = {
     "admin@allocato.local",
 }
+
+# Direkte Test-Freischaltungen pro E-Mail.
+# Beispiel:
+# TEST_ACCOUNT_TIER_OVERRIDES = {
+#     "kev_cone@web.de": "Pro",
+#     "zweite@email.de": "Lifetime",
+# }
+TEST_ACCOUNT_TIER_OVERRIDES = {
+    # "deine@email.de": "Pro",
+}
+
 ALLOW_ADMIN_TIER_OVERRIDE = True
 
 def ensure_auth_session_state():
@@ -50,6 +61,20 @@ def ensure_auth_session_state():
 
 def normalize_email(email: str) -> str:
     return email.strip().lower()
+
+def get_test_override_tier(email: str) -> str | None:
+    normalized = normalize_email(email)
+    tier = TEST_ACCOUNT_TIER_OVERRIDES.get(normalized)
+    return tier if tier in TIERS else None
+
+def resolve_effective_tier(email: str | None, stored_tier: str | None = None) -> str:
+    email_normalized = normalize_email(email) if email else ""
+    override_tier = get_test_override_tier(email_normalized) if email_normalized else None
+    if override_tier:
+        return override_tier
+    if stored_tier in TIERS:
+        return stored_tier
+    return "Free"
 
 def is_valid_email(email: str) -> bool:
     pattern = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
@@ -142,7 +167,7 @@ def login_user(email: str, password: str) -> tuple[bool, str]:
     st.session_state["auth_logged_in"] = True
     st.session_state["auth_user_email"] = normalized
     st.session_state["auth_is_admin"] = normalized in ADMIN_EMAILS
-    st.session_state["subscription_tier"] = row["subscription_tier"]
+    st.session_state["subscription_tier"] = resolve_effective_tier(normalized, row["subscription_tier"])
     st.session_state["auth_loaded_for"] = ""
     return True, "Erfolgreich eingeloggt."
 
@@ -207,8 +232,9 @@ init_user_db()
 # Hard Limits
 # =========================
 def get_current_tier() -> str:
+    email = st.session_state.get("auth_user_email", "")
     tier = st.session_state.get("subscription_tier", "Free")
-    return tier if tier in TIERS else "Free"
+    return resolve_effective_tier(email, tier)
 
 def get_max_baskets() -> int:
     return 1 if get_current_tier() == "Free" else 999
@@ -325,7 +351,7 @@ def load_logged_in_user_state():
     if row is None:
         logout_user()
         return
-    st.session_state["subscription_tier"] = row["subscription_tier"]
+    st.session_state["subscription_tier"] = resolve_effective_tier(email, row["subscription_tier"])
     st.session_state["auth_is_admin"] = email in ADMIN_EMAILS
     payload = {}
     if row["state_json"]:
