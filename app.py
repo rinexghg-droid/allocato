@@ -87,7 +87,12 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-
+with st.expander("⚠️ Wichtiger Hinweis"):
+    st.markdown("""
+**Allocato ist kein Anlageberatungstool.**  
+Die dargestellten Ergebnisse sind historische Simulationen und keine Garantie für zukünftige Renditen.  
+Jede Anlageentscheidung triffst du selbst. Vergangene Performance ist kein Indikator für zukünftige Ergebnisse.
+""")
 st.markdown(
     """
     <div class="story-box">
