@@ -17,13 +17,28 @@ if "subscription_tier" not in st.session_state:
     st.session_state.subscription_tier = "Free"
 
 # =========================
+# Hard Limits
+# =========================
+def get_max_baskets() -> int:
+    return 1 if st.session_state.get("subscription_tier", "Free") == "Free" else 999
+
+def get_max_period() -> str:
+    return "3y" if st.session_state.get("subscription_tier", "Free") == "Free" else "5y"
+
+def can_use_asset_search() -> bool:
+    return st.session_state.get("subscription_tier", "Free") in ["Basic", "Pro", "Lifetime"]
+
+def can_export_full() -> bool:
+    return st.session_state.get("subscription_tier", "Free") != "Free"
+
+# =========================
 # Defaults / Session State
 # =========================
 defaults = {
     "language": "DE",
     "initial_capital": 10000,
     "monthly_savings": 500,
-    "period": "5y",
+    "period": get_max_period(),
     "rebalance_freq": "Monatlich",
     "fee_pct_input": 0.10,
     "min_score": 0.00,
@@ -65,6 +80,18 @@ if "new_basket_name" not in st.session_state:
 
 if "rename_basket_name" not in st.session_state:
     st.session_state.rename_basket_name = ""
+
+# Enforce strict Free limits in session state
+if st.session_state.get("subscription_tier", "Free") == "Free":
+    if len(st.session_state.baskets) > 1:
+        first_name = list(st.session_state.baskets.keys())[0]
+        st.session_state.baskets = {first_name: st.session_state.baskets[first_name]}
+        st.session_state.active_basket = first_name
+        st.session_state.last_loaded_basket = first_name
+    if st.session_state.get("period") not in ["1y", "2y", "3y"]:
+        st.session_state["period"] = "3y"
+    if int(st.session_state.get("top_n", 4)) > 4:
+        st.session_state["top_n"] = 4
 
 # =========================
 # Presets
@@ -761,8 +788,7 @@ TRANSLATIONS = {
 # Helpers
 # =========================
 def get_basket_limit() -> int:
-    tier = st.session_state.get("subscription_tier", "Free")
-    return 1 if tier == "Free" else 999
+    return get_max_baskets()
 
 def queue_preset(name: str):
     st.session_state["_pending_preset"] = name
@@ -1118,6 +1144,13 @@ else:
 st.sidebar.header(T["basket_header"])
 basket_names = list(st.session_state.baskets.keys())
 
+if tier == "Free" and len(basket_names) > 1:
+    first = basket_names[0]
+    st.session_state.baskets = {first: st.session_state.baskets[first]}
+    st.session_state.active_basket = first
+    st.session_state.last_loaded_basket = first
+    basket_names = [first]
+
 st.sidebar.selectbox(
     T["basket_select"],
     options=basket_names,
@@ -1126,58 +1159,58 @@ st.sidebar.selectbox(
 
 sync_active_basket_from_state()
 
-st.sidebar.text_input(T["basket_new_name"], key="new_basket_name")
+if tier != "Free":
+    st.sidebar.text_input(T["basket_new_name"], key="new_basket_name")
 
-if st.sidebar.button(T["basket_add"], use_container_width=True):
-    name = st.session_state.new_basket_name.strip()
-    if not name:
-        st.sidebar.error(T["basket_name_empty"])
-    elif name in st.session_state.baskets:
-        st.sidebar.error(T["basket_name_exists"])
-    elif len(st.session_state.baskets) >= get_basket_limit():
-        st.sidebar.warning(T["basket_limit_free"])
-    else:
-        save_active_basket_to_state()
-        st.session_state.baskets[name] = defaults["assets_input"]
-        st.session_state.active_basket = name
-        st.session_state.assets_input = defaults["assets_input"]
-        st.session_state.last_loaded_basket = name
-        st.session_state.new_basket_name = ""
-        st.sidebar.success(T["basket_created"].format(name=name))
-        st.rerun()
+    if st.sidebar.button(T["basket_add"], use_container_width=True):
+        name = st.session_state.new_basket_name.strip()
+        if not name:
+            st.sidebar.error(T["basket_name_empty"])
+        elif name in st.session_state.baskets:
+            st.sidebar.error(T["basket_name_exists"])
+        elif len(st.session_state.baskets) >= get_basket_limit():
+            st.sidebar.warning(T["basket_limit_free"])
+        else:
+            save_active_basket_to_state()
+            st.session_state.baskets[name] = defaults["assets_input"]
+            st.session_state.active_basket = name
+            st.session_state.assets_input = defaults["assets_input"]
+            st.session_state.last_loaded_basket = name
+            st.session_state.new_basket_name = ""
+            st.sidebar.success(T["basket_created"].format(name=name))
+            st.rerun()
 
-rename_name = st.sidebar.text_input(T["basket_rename_name"], key="rename_basket_name")
+    rename_name = st.sidebar.text_input(T["basket_rename_name"], key="rename_basket_name")
 
-if st.sidebar.button(T["basket_rename"], use_container_width=True):
-    old_name = st.session_state.active_basket
-    new_name = rename_name.strip()
-    if not new_name:
-        st.sidebar.error(T["basket_name_empty"])
-    elif new_name in st.session_state.baskets and new_name != old_name:
-        st.sidebar.error(T["basket_name_exists"])
-    else:
-        save_active_basket_to_state()
-        st.session_state.baskets[new_name] = st.session_state.baskets.pop(old_name)
-        st.session_state.active_basket = new_name
-        st.session_state.last_loaded_basket = new_name
-        st.session_state.rename_basket_name = ""
-        st.sidebar.success(T["basket_renamed"].format(name=new_name))
-        st.rerun()
+    if st.sidebar.button(T["basket_rename"], use_container_width=True):
+        old_name = st.session_state.active_basket
+        new_name = rename_name.strip()
+        if not new_name:
+            st.sidebar.error(T["basket_name_empty"])
+        elif new_name in st.session_state.baskets and new_name != old_name:
+            st.sidebar.error(T["basket_name_exists"])
+        else:
+            save_active_basket_to_state()
+            st.session_state.baskets[new_name] = st.session_state.baskets.pop(old_name)
+            st.session_state.active_basket = new_name
+            st.session_state.last_loaded_basket = new_name
+            st.session_state.rename_basket_name = ""
+            st.sidebar.success(T["basket_renamed"].format(name=new_name))
+            st.rerun()
 
-if st.sidebar.button(T["basket_delete"], use_container_width=True):
-    if len(st.session_state.baskets) <= 1:
-        st.sidebar.warning(T["basket_delete_blocked"])
-    else:
-        current = st.session_state.active_basket
-        st.session_state.baskets.pop(current, None)
-        new_active = list(st.session_state.baskets.keys())[0]
-        st.session_state.active_basket = new_active
-        st.session_state.assets_input = st.session_state.baskets[new_active]
-        st.session_state.last_loaded_basket = new_active
-        st.sidebar.success(T["basket_deleted"].format(name=current))
-        st.rerun()
-
-if tier == "Free" and len(st.session_state.baskets) >= 1:
+    if st.sidebar.button(T["basket_delete"], use_container_width=True):
+        if len(st.session_state.baskets) <= 1:
+            st.sidebar.warning(T["basket_delete_blocked"])
+        else:
+            current = st.session_state.active_basket
+            st.session_state.baskets.pop(current, None)
+            new_active = list(st.session_state.baskets.keys())[0]
+            st.session_state.active_basket = new_active
+            st.session_state.assets_input = st.session_state.baskets[new_active]
+            st.session_state.last_loaded_basket = new_active
+            st.sidebar.success(T["basket_deleted"].format(name=current))
+            st.rerun()
+else:
     st.sidebar.caption(T["basket_limit_free"])
 
 st.sidebar.header(T["sidebar_settings"])
@@ -1343,7 +1376,7 @@ save_active_basket_to_state()
 # =========================
 # Asset Search / Basket Builder
 # =========================
-if tier in ["Basic", "Pro", "Lifetime"]:
+if can_use_asset_search():
     st.sidebar.subheader(T["asset_search_section"])
 
     search_query = st.sidebar.text_input(
@@ -1797,10 +1830,7 @@ if st.sidebar.button(T["calculate"], type="primary"):
             use_container_width=True,
         )
 
-        if tier == "Free":
-            col_exp2.caption(T["export_locked"])
-            col_exp3.caption(T["export_locked"])
-        else:
+        if can_export_full():
             col_exp2.download_button(
                 label=T["export_rebal"],
                 data=rebal_csv,
@@ -1816,6 +1846,9 @@ if st.sidebar.button(T["calculate"], type="primary"):
                 mime="text/csv",
                 use_container_width=True,
             )
+        else:
+            col_exp2.caption(T["export_locked"])
+            col_exp3.caption(T["export_locked"])
 
         with st.expander(T["interpret_expander"]):
             st.markdown(
