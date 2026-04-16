@@ -1274,13 +1274,20 @@ assets_input = st.sidebar.text_area(
 input_tickers = [x.strip() for x in assets_input.splitlines() if x.strip()]
 max_assets = max(1, len(input_tickers))
 
+current_top_n = st.session_state.get("top_n", 1)
+safe_top_n = min(max(1, current_top_n), max_assets)
+st.session_state["top_n"] = safe_top_n
+
 top_n = st.sidebar.slider(
     T["top_n"],
     min_value=1,
     max_value=max_assets,
+    value=safe_top_n,
     key="top_n",
     help=T["top_n_help"],
 )
+if len(input_tickers) < 2:
+    st.sidebar.caption("⚠️ Für die Berechnung werden mindestens 2 Assets benötigt.")
 
 # =========================
 # Explainers
