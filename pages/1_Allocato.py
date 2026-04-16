@@ -42,7 +42,7 @@ ADMIN_EMAILS = {
 #     "zweite@email.de": "Lifetime",
 # }
 TEST_ACCOUNT_TIER_OVERRIDES = {
-    # "deine@email.de": "Pro",
+    "kev_cone@web.de": "Pro",
 }
 
 ALLOW_ADMIN_TIER_OVERRIDE = True
@@ -1463,8 +1463,12 @@ else:
                     st.sidebar.error(message)
 
 st.sidebar.header(T["subscription_header"])
-tier = st.session_state.get("subscription_tier", "Free")
+tier = get_current_tier()
+stored_tier = st.session_state.get("subscription_tier", "Free")
 st.sidebar.markdown(f'**{AUTH_T["current_plan"]}:** {TIER_ICONS.get(tier, "🔑")} {tier}')
+override_tier = get_test_override_tier(st.session_state.get("auth_user_email", ""))
+if override_tier and st.session_state.get("auth_logged_in"):
+    st.sidebar.caption(f"🧪 Test-Override aktiv: {override_tier} für {st.session_state.get('auth_user_email', '')}")
 
 if tier == "Free":
     st.sidebar.warning(T["free_warning"])
@@ -2319,5 +2323,5 @@ if st.sidebar.button(T["calculate"], type="primary"):
 
 else:
     st.info(T["info_start"])
-    if st.session_state.get("subscription_tier", "Free") == "Free":
+    if get_current_tier() == "Free":
         st.caption(T["footer_free"])
